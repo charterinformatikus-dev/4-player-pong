@@ -19,7 +19,7 @@ let players = {
   4: { x: 200, dir: 0 }
 };
 let ball = { x: 300, y: 200, vx: 3, vy: 2 };
-
+// Pontszámok
 let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
 function resetBall() {
@@ -50,6 +50,14 @@ setInterval(() => {
   const state = { type: "state", players, ball, scores };
   broadcastTo("display", JSON.stringify(state));
 }, 1000 / 60);
+
+function broadcastTo(role, msg) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN && client.role === role) {
+      client.send(msg);
+    }
+  });
+}
 
 wss.on("connection", (ws, req) => {
   const params = url.parse(req.url, true).query;
