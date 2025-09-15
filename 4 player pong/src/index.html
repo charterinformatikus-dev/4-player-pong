@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>4 Játékos Pong</title>
+  <style>
+    body {
+      background: #111;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    #gameWrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #scoreboard {
+      display: flex;
+      justify-content: space-between;
+      width: 600px;
+      margin-bottom: 10px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    canvas {
+      background: #000;
+      display: block;
+      border: 3px solid #555;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="gameWrapper">
+    <div id="scoreboard">
+      <div>Bal: <span id="p1Score">0</span></div>
+      <div>Jobb: <span id="p2Score">0</span></div>
+      <div>Felső: <span id="p3Score">0</span></div>
+      <div>Alsó: <span id="p4Score">0</span></div>
+    </div>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const wsUrl = "ws://192.168.88.157:8080/4playerpong?type=display";
+    let socket = new WebSocket(wsUrl);
+
+    let gameState = null;
+
+    socket.onopen = () => console.log("Kapcsolódva a szerverhez");
+    socket.onerror = (err) => console.error("WebSocket hiba", err);
+    socket.onclose = () => console.warn("WebSocket kapcsolat bontva");
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "state") {
+        gameState = msg;
+
+        // scoreboard frissítés
+        document.getElementById("p1Score").textContent = msg.scores[1];
+        document.getElementById("p2Score").textContent = msg.scores[2];
+        document.getElementById("p3Score").textContent = msg.scores[3];
+        document.getElementById("p4Score").textContent = msg.scores[4];
+      }
+    };
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!gameState) {
+        ctx.fillStyle = "white";
+        ctx.font = "20px sans-serif";
+        ctx.fillText("Várakozás a szerverre...", 200, 200);
+        requestAnimationFrame(draw);
+        return;
+      }
+
+      const { players, ball } = gameState;
+
+      // labda
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // játékosok
+      ctx.fillStyle = "lime";
+      if (players[1]) ctx.fillRect(20, players[1].y, 10, 60);
+      if (players[2]) ctx.fillRect(canvas.width - 30, players[2].y, 10, 60);
+      if (players[3]) ctx.fillRect(players[3].x, 20, 60, 10);
+      if (players[4]) ctx.fillRect(players[4].x, canvas.height - 30, 60, 10);
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
