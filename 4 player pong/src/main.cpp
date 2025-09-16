@@ -15,7 +15,7 @@ const int joySwitchPin = 4;
 const int soundPin = 5;
 
 String lastDir = "stop";
-int espId = 0;
+int espId = 0;  // a szerver tölti be
 
 // observed min/max (for runtime calibration)
 int obsMinX = 65535, obsMaxX = 0;
@@ -46,13 +46,8 @@ void setup() {
 
   pinMode(soundPin, OUTPUT);
 
-  // IP alapú ID kiosztás
-  IPAddress ip = WiFi.localIP();
-  int lastOctet = ip[3];
-  espId = (lastOctet % 4) + 1;
-  Serial.printf("Saját IP: %s, ID: %d\n", ip.toString().c_str(), espId);
-
-  String path = String("/4playerpong?type=esp&id=") + espId;
+  // csak type=esp, ID-t szerver ad
+  String path = String("/4playerpong?type=esp");
   webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
@@ -121,7 +116,7 @@ void loop() {
   if (dir != lastDir || (dir == "stop" && now - lastSend > 500)) {
     DynamicJsonDocument doc(128);
     doc["dir"] = dir;
-    doc["id"] = espId;
+    // NEM küldünk ID-t, mert a szerver tudja
     char buffer[128];
     serializeJson(doc, buffer, sizeof(buffer));
     webSocket.sendTXT(buffer);
@@ -149,10 +144,13 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
       DeserializationError err = deserializeJson(doc, msg);
       if (!err) {
         if (doc["type"] == "hit") {
-          // hang effekt
           tone(soundPin, 1000, 100);
           delay(120);
           noTone(soundPin);
+        }
+        if (doc["type"] == "welcome") {
+          espId = doc["id"];
+          Serial.printf("Szerver kiosztotta az ID-t: %d\n", espId);
         }
       }
       break;

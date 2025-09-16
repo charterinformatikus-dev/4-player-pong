@@ -9,11 +9,9 @@
   header { padding:10px 16px; display:flex; gap:12px; align-items:center; background:#071025; box-shadow:0 2px 6px rgba(0,0,0,.6); }
   header h1 { font-size:16px; margin:0; }
   #status { margin-left:auto; font-size:13px; opacity:.9; }
-  #game-wrap { flex:1; display:flex; align-items:center; justify-content:center; }
+  #game-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #scoreboard { font-size:28px; font-weight:bold; margin-bottom:12px; text-align:center; }
   canvas { background:#0b2a3a; border:6px solid #022539; border-radius:8px; max-width:100%; max-height:100%; }
-  #info { padding:10px 16px; font-size:13px; background:#071025; display:flex; gap:12px; align-items:center; height: 40px;}
-  .controller { min-width:160px; padding:6px 10px; background:#052233; border-radius:6px; }
-  .small { font-size:12px; color:#9fb4c9; }
 </style>
 </head>
 <body>
@@ -23,83 +21,98 @@
 </header>
 
 <div id="game-wrap">
+  <div id="scoreboard">
+    Pontszámok: <span id="scores">—</span>
+  </div>
   <canvas id="game" width="600" height="400"></canvas>
 </div>
 
-<div id="info">
-  <div class="controller">
-    <div><strong>Pontszámok</strong></div>
-    <div class="small" id="scores">—</div>
-  </div>
-</div>
-
 <script>
-let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
-let socket = null;
-let gameState = null;
+  let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
+  let socket = null;
+  let gameState = null;
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-function tryConnect() {
-  updateWSState('próbálkozás...');
-  socket = new WebSocket(wsUrl);
-  socket.onopen = () => updateWSState('csatlakozva');
-  socket.onerror = () => updateWSState('hiba');
-  socket.onclose = () => {
-    updateWSState('kapcsolat bontva, újracsatlakozás...');
-    setTimeout(() => location.reload(), 2000);
-  };
-  
-  socket.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type === "state") {
-      gameState = msg;
-      document.getElementById("scores").textContent =
-        `Bal: ${msg.scores[1]} | Jobb: ${msg.scores[2]} | Felső: ${msg.scores[3]} | Alsó: ${msg.scores[4]}`;
-    }
-  };
-}
-tryConnect();
+  let winnerMessage = null;
+  let winnerTimeout = null;
 
-function draw() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  let p1y = gameState?.players?.[1]?.y ?? canvas.height/2 - 30;
-  let p2y = gameState?.players?.[2]?.y ?? canvas.height/2 - 30;
-  let p3x = gameState?.players?.[3]?.x ?? canvas.width/2 - 30;
-  let p4x = gameState?.players?.[4]?.x ?? canvas.width/2 - 30;
-  let bx  = gameState?.ball?.x ?? canvas.width/2;
-  let by  = gameState?.ball?.y ?? canvas.height/2;
-
-  if (!gameState) {
-    ctx.fillStyle = "white";
-    ctx.font = "20px sans-serif";
-    ctx.fillText("Várakozás a szerverre...", 200, 200);
+  function tryConnect() {
+    updateWSState('próbálkozás...');
+    socket = new WebSocket(wsUrl);
+    socket.onopen = () => updateWSState('csatlakozva');
+    socket.onerror = () => updateWSState('hiba');
+    socket.onclose = () => {
+      updateWSState('kapcsolat bontva, újracsatlakozás...');
+      setTimeout(() => location.reload(), 2000);
+    };
+    
+    socket.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "state") {
+        gameState = msg;
+        document.getElementById("scores").textContent =
+          `Bal: ${msg.scores[1]} | Jobb: ${msg.scores[2]} | Felső: ${msg.scores[3]} | Alsó: ${msg.scores[4]}`;
+      }
+      if (msg.type === "winner") {
+        const winnerNames = {1:"Bal", 2:"Jobb", 3:"Felső", 4:"Alsó"};
+        winnerMessage = `${winnerNames[msg.id]} játékos nyert! 🎉`;
+        // töröljük pár másodperc után
+        if (winnerTimeout) clearTimeout(winnerTimeout);
+        winnerTimeout = setTimeout(() => { winnerMessage = null; }, 3000);
+      }
+    };
   }
+  tryConnect();
 
-  ctx.fillStyle = "#75e0ff"; // bal
-  ctx.fillRect(20, p1y, 10, 60);
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle = "#ffd57a"; // jobb
-  ctx.fillRect(canvas.width-30, p2y, 10, 60);
+    let p1y = gameState?.players?.[1]?.y ?? canvas.height/2 - 30;
+    let p2y = gameState?.players?.[2]?.y ?? canvas.height/2 - 30;
+    let p3x = gameState?.players?.[3]?.x ?? canvas.width/2 - 30;
+    let p4x = gameState?.players?.[4]?.x ?? canvas.width/2 - 30;
+    let bx  = gameState?.ball?.x ?? canvas.width/2;
+    let by  = gameState?.ball?.y ?? canvas.height/2;
 
-  ctx.fillStyle = "#9effa3"; // felső
-  ctx.fillRect(p3x, 20, 60, 10);
+    if (!gameState) {
+      ctx.fillStyle = "white";
+      ctx.font = "20px sans-serif";
+      ctx.fillText("Várakozás a szerverre...", 200, 200);
+    }
 
-  ctx.fillStyle = "#ff9ecb"; // alsó
-  ctx.fillRect(p4x, canvas.height-30, 60, 10);
+    ctx.fillStyle = "#75e0ff"; // bal
+    ctx.fillRect(20, p1y, 10, 60);
 
-  ctx.fillStyle = "white"; // labda
-  ctx.beginPath();
-  ctx.arc(bx, by, 8, 0, Math.PI*2);
-  ctx.fill();
+    ctx.fillStyle = "#ffd57a"; // jobb
+    ctx.fillRect(canvas.width-30, p2y, 10, 60);
 
-  requestAnimationFrame(draw);
-}
-draw();
+    ctx.fillStyle = "#9effa3"; // felső
+    ctx.fillRect(p3x, 20, 60, 10);
 
-function updateWSState(s){ document.getElementById('ws-state').textContent = s; }
-</script>
+    ctx.fillStyle = "#ff9ecb"; // alsó
+    ctx.fillRect(p4x, canvas.height-30, 60, 10);
+
+    ctx.fillStyle = "white"; // labda
+    ctx.beginPath();
+    ctx.arc(bx, by, 8, 0, Math.PI*2);
+    ctx.fill();
+
+    // ha van győztes üzenet, írjuk ki középre
+    if (winnerMessage) {
+      ctx.fillStyle = "yellow";
+      ctx.font = "32px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(winnerMessage, canvas.width/2, canvas.height/2);
+      ctx.textAlign = "left"; // visszaállítás
+    }
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  function updateWSState(s){ document.getElementById('ws-state').textContent = s; }
+  </script>
 </body>
 </html>
