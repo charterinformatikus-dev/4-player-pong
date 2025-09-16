@@ -57,7 +57,7 @@
       }
       if (msg.type === "winner") {
         const winnerNames = {1:"Bal", 2:"Jobb", 3:"Felső", 4:"Alsó"};
-        winnerMessage = `${winnerNames[msg.id]} játékos nyert! 🎉`;
+        winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
         // töröljük pár másodperc után
         if (winnerTimeout) clearTimeout(winnerTimeout);
         winnerTimeout = setTimeout(() => { winnerMessage = null; }, 3000);

@@ -19,6 +19,9 @@ let ball = { x: 300, y: 200, vx: 3, vy: 2 };
 let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let lastHit = null; // utolsó ütő
 
+let gamePaused = false;
+let pauseUntil = 0;
+
 function resetBall() {
   ball.x = 300;
   ball.y = 200;
@@ -27,6 +30,12 @@ function resetBall() {
 }
 
 setInterval(() => {
+  if (gamePaused) {
+    const state = { type: "state", players, ball, scores, paused: true };
+    broadcastTo("display", JSON.stringify(state));
+    return; // játék áll
+  }
+
   // paddlek mozgatása
   if (players[1]) players[1].y = Math.max(0, Math.min(340, players[1].y + players[1].dir * 5));
   if (players[2]) players[2].y = Math.max(0, Math.min(340, players[2].y + players[2].dir * 5));
@@ -71,10 +80,21 @@ setInterval(() => {
     if (scores[lastHit] >= 10) {
       console.log(`Játékos ${lastHit} nyert!`);
       broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
-      // nullázzuk a pontokat és folytatjuk
-      scores = { 1:0, 2:0, 3:0, 4:0 };
+
+      // játék leállítása 3 másodpercre
+      gamePaused = true;
+      pauseUntil = Date.now() + 3000;
+
+      // nullázás csak szünet végén
+      setTimeout(() => {
+        scores = { 1:0, 2:0, 3:0, 4:0 };
+        resetBall();
+        lastHit = null;
+        gamePaused = false;
+      }, 3000);
     }
   }
+
   resetBall();
   lastHit = null; // újrakezdésnél töröljük
 }
@@ -132,6 +152,10 @@ wss.on("connection", (ws, req) => {
 
   ws.on("message", (msg) => {
     try {
+      if (ws.role === "esp" && ws.id) {
+      if (gamePaused) return; // szünet alatt ignoráljuk
+  // normál paddle iránykezelés
+}
       const data = JSON.parse(msg.toString());
       if (ws.role === "esp" && ws.id) {
         if (ws.id === 1 || ws.id === 2) {
@@ -140,8 +164,8 @@ wss.on("connection", (ws, req) => {
           else players[ws.id].dir = 0;
         }
         if (ws.id === 3 || ws.id === 4) {
-          if (data.dir === "left") players[ws.id].dir = -1;
-          else if (data.dir === "right") players[ws.id].dir = 1;
+          if (data.dir === "left") players[ws.id].dir = 1;
+          else if (data.dir === "right") players[ws.id].dir = -1;
           else players[ws.id].dir = 0;
         }
       }
