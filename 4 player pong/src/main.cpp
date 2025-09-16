@@ -3,29 +3,30 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 
-// ====== WIFI ======
+// ===== WIFI =====
 const char* ssid = "ESP_ROUTER";
 const char* password = "charter2019";
 
-// ====== FIX KLIENS ID (1..4) ======
-#define ESP_ID 2   // ← állítsd minden eszközön 1..4 közé
+// ===== FIX KLIENS ID (1..4) =====
+#define ESP_ID 2  // <- állítsd 1..4 közé minden eszközön
 
 WebSocketsClient webSocket;
 
-// joystick pins (ESP32-S2 Mini)
+// Joystick pins (ESP32-S2 Mini)
 const int pinX = 3;
 const int pinY = 2;
 const int joySwitchPin = 4;   // gomb
 const int soundPin = 5;
 
 String lastDir = "stop";
-bool joined = false;  // alapból AI, gombbal vált Player-re
+bool joined = false;     // ténylegesen Player módban vagyunk-e
+bool wantJoin = false;   // szeretnénk-e Player módban lenni (kitart restartokon is)
 
-// observed min/max (for runtime calibration)
+// Kalibrációhoz
 int obsMinX = 65535, obsMaxX = 0;
 int obsMinY = 65535, obsMaxY = 0;
 
-unsigned long lastSend = 0;  // biztonsági stop timer
+unsigned long lastSend = 0;
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
@@ -36,6 +37,15 @@ int readAvg(int pin, int samples = 6) {
     delay(2);
   }
   return (int)(sum / samples);
+}
+
+void sendJoin() {
+  DynamicJsonDocument doc(64);
+  doc["type"] = "join";
+  char buffer[64];
+  serializeJson(doc, buffer, sizeof(buffer));
+  webSocket.sendTXT(buffer);
+  Serial.println("JOIN elküldve");
 }
 
 void setup() {
@@ -51,14 +61,14 @@ void setup() {
   pinMode(soundPin, OUTPUT);
   pinMode(joySwitchPin, INPUT_PULLUP);
 
-  // Csatlakozás fix, compile-time ID-val
+  // Fix ID-s csatlakozás
   String path = String("/4playerpong?type=esp&id=") + String(ESP_ID);
   webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
 
-  // quick initial center sampling
-  Serial.println("Kalibrálás (joystick középen tart)... ");
+  // Gyors közép-mintavétel
+  Serial.println("Kalibrálás (joystick középen tart)...");
   long sx = 0, sy = 0;
   const int N = 30;
   for (int i = 0; i < N; ++i) {
@@ -68,7 +78,6 @@ void setup() {
   int cx = sx / N;
   int cy = sy / N;
 
-  // induló tartomány ±512
   obsMinX = cx - 512;
   obsMaxX = cx + 512;
   obsMinY = cy - 512;
@@ -80,23 +89,21 @@ void setup() {
 void loop() {
   webSocket.loop();
 
-  // gomb lenyomás → Player mód
-  if (digitalRead(joySwitchPin) == LOW && !joined) {
-    DynamicJsonDocument doc(64);
-    doc["type"] = "join";
-    char buffer[64];
-    serializeJson(doc, buffer, sizeof(buffer));
-    webSocket.sendTXT(buffer);
-    joined = true;
-    Serial.println("JOIN küldve → Player mód!");
-    delay(500);  // debounce
+  // Gomb: bekapcsoljuk a "wantJoin"-t és azonnal kérünk Player módot.
+  if (digitalRead(joySwitchPin) == LOW) {
+    if (!joined) {
+      wantJoin = true;     // ragaszkodunk a Player módhoz a jövőben is
+      sendJoin();
+      // debounce
+      delay(500);
+    }
   }
 
   if (joined) {
     int xVal = readAvg(pinX);
     int yVal = readAvg(pinY);
 
-    // update observed min/max
+    // observed min/max frissítés
     if (xVal < obsMinX) obsMinX = xVal;
     if (xVal > obsMaxX) obsMaxX = xVal;
     if (yVal < obsMinY) obsMinY = yVal;
@@ -122,7 +129,7 @@ void loop() {
 
     String dir = "stop";
 
-    // iránylogika VÁLTOZATLAN (a szerveredhez igazodva)
+    // Iránylogika változatlan
     if (absDY > threshY && absDY >= absDX) {
       dir = (deltaY < 0) ? "up" : "down";
     } else if (absDX > threshX) {
@@ -151,10 +158,17 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:
       Serial.println("WS bontva");
+      joined = false;             // hogy újra lehessen csatlakozni/joinolni
       break;
+
     case WStype_CONNECTED:
       Serial.println("WS kapcsolódva");
+      // Ha korábban Player-t kértünk, automatikusan re-join
+      if (wantJoin) {
+        sendJoin();
+      }
       break;
+
     case WStype_TEXT: {
       String msg = String((char*)payload);
       Serial.printf("WS üzenet: %s\n", msg.c_str());
@@ -162,20 +176,25 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
       DynamicJsonDocument doc(128);
       DeserializationError err = deserializeJson(doc, msg);
       if (!err) {
-        if (doc["type"] == "hit") {
+        const char* t = doc["type"] | "";
+        if (!strcmp(t, "hit")) {
           tone(soundPin, 1000, 100);
           delay(120);
           noTone(soundPin);
-        }
-        if (doc["type"] == "reset") {
-          tone(soundPin, 400, 300);   // új hang resetnél
+        } else if (!strcmp(t, "reset")) {
+          tone(soundPin, 400, 300);
           delay(320);
           noTone(soundPin);
+        } else if (!strcmp(t, "joined")) {
+          // Szerver visszaigazolása: mostantól Player módban vagyunk
+          joined = true;
+          Serial.printf("JOINED ACK, id=%d\n", ESP_ID);
         }
-        // "welcome" üzenetet figyelmen kívül hagyjuk — az ID compile-time fix (ESP_ID)
+        // "welcome" érkezhet, de nincs rá szükségünk compile-time ID mellett
       }
       break;
     }
+
     default:
       break;
   }
