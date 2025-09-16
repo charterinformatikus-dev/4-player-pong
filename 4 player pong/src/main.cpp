@@ -116,7 +116,6 @@ void loop() {
   if (dir != lastDir || (dir == "stop" && now - lastSend > 500)) {
     DynamicJsonDocument doc(128);
     doc["dir"] = dir;
-    // NEM küldünk ID-t, mert a szerver tudja
     char buffer[128];
     serializeJson(doc, buffer, sizeof(buffer));
     webSocket.sendTXT(buffer);
@@ -146,6 +145,11 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
         if (doc["type"] == "hit") {
           tone(soundPin, 1000, 100);
           delay(120);
+          noTone(soundPin);
+        }
+        if (doc["type"] == "reset") {
+          tone(soundPin, 400, 300);   // új hang resetnél
+          delay(320);
           noTone(soundPin);
         }
         if (doc["type"] == "welcome") {
