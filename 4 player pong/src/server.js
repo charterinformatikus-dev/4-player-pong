@@ -9,33 +9,30 @@ const wss = new WebSocket.Server({ server, path: "/4playerpong" });
 
 app.use(express.static(__dirname));
 
-// alap értékek (később a display küldi a pontos méretet)
+// alap értékek
 let FIELD_W = 600;
 let FIELD_H = 400;
 
-// paddlek / labda méretek
 const PADDLE_H = 120;
 const PADDLE_W = 120;
 const PADDLE_THICKNESS = 20;
 const PADDLE_OFFSET = 30;
 const BALL_R = 12;
 
-// játék állapota
 let players = {};
 let ball = {};
 let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let lastHit = null;
 let gamePaused = false;
 
-let lastInputTime = {1: Date.now(), 2: Date.now(), 3: Date.now(), 4: Date.now()};
-let aiEnabled = {1:false,2:false,3:false,4:false};
+let aiEnabled = {1:true,2:true,3:true,4:true};
+let lastInputTime = {1:0,2:0,3:0,4:0};
 
 function resetBall() {
   ball.x = FIELD_W/2;
   ball.y = FIELD_H/2;
   ball.vx = Math.random() > 0.5 ? 6 : -6;
   ball.vy = Math.random() > 0.5 ? 4 : -4;
-  // új hang resetnél
   broadcastTo("esp", JSON.stringify({ type: "reset" }));
 }
 
@@ -52,21 +49,26 @@ function resetGame() {
 resetGame();
 
 setInterval(() => {
-  // AI aktiválás 10s inaktivitás után
-  for (let i=1;i<=4;i++) {
-    if (!aiEnabled[i] && (Date.now() - lastInputTime[i] > 10000)) {
-      console.log(`AI átvette a(z) ${i}. játékost`);
-      aiEnabled[i] = true;
-    }
-  }
-
   if (gamePaused) {
-    const state = { type: "state", players, ball, scores, paused: true };
+    const state = { type: "state", players, ball, scores, roles: {
+      1: aiEnabled[1] ? "AI" : "Player",
+      2: aiEnabled[2] ? "AI" : "Player",
+      3: aiEnabled[3] ? "AI" : "Player",
+      4: aiEnabled[4] ? "AI" : "Player"
+    }};
     broadcastTo("display", JSON.stringify(state));
     return;
   }
 
-  // AI mozgatja a paddlet
+  for (let i=1;i<=4;i++) {
+    if (!aiEnabled[i] && lastInputTime[i] > 0 && (Date.now() - lastInputTime[i] > 10000)) {
+      console.log(`Játékos ${i} inaktív → AI visszaveszi`);
+      aiEnabled[i] = true;
+      players[i].dir = 0;
+    }
+  }
+  
+  // AI mozgatás
   for (let i=1;i<=4;i++) {
     if (aiEnabled[i]) {
       if (i === 1 || i === 2) {
@@ -95,7 +97,7 @@ setInterval(() => {
   const topPaddleY = PADDLE_OFFSET;
   const bottomPaddleY = FIELD_H - PADDLE_OFFSET - PADDLE_THICKNESS;
 
-  // --- kollíziók ---
+  // ütközések
   if ((ball.x - BALL_R) <= (leftPaddleX + PADDLE_THICKNESS)
       && ball.y >= players[1].y
       && ball.y <= players[1].y + PADDLE_H) {
@@ -104,7 +106,6 @@ setInterval(() => {
     sendToId(1, JSON.stringify({ type: "hit" }));
     lastHit = 1;
   }
-
   if ((ball.x + BALL_R) >= rightPaddleX
       && ball.y >= players[2].y
       && ball.y <= players[2].y + PADDLE_H) {
@@ -113,7 +114,6 @@ setInterval(() => {
     sendToId(2, JSON.stringify({ type: "hit" }));
     lastHit = 2;
   }
-
   if ((ball.y - BALL_R) <= (topPaddleY + PADDLE_THICKNESS)
       && ball.x >= players[3].x
       && ball.x <= players[3].x + PADDLE_W) {
@@ -122,7 +122,6 @@ setInterval(() => {
     sendToId(3, JSON.stringify({ type: "hit" }));
     lastHit = 3;
   }
-
   if ((ball.y + BALL_R) >= bottomPaddleY
       && ball.x >= players[4].x
       && ball.x <= players[4].x + PADDLE_W) {
@@ -132,17 +131,16 @@ setInterval(() => {
     lastHit = 4;
   }
 
-  // pontszám
+  // pontszerzés
   if (ball.x < -BALL_R || ball.x > FIELD_W + BALL_R || ball.y < -BALL_R || ball.y > FIELD_H + BALL_R) {
     if (lastHit) {
       scores[lastHit]++;
       if (scores[lastHit] >= 10) {
         console.log(`Játékos ${lastHit} nyert!`);
         broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
-
         gamePaused = true;
         setTimeout(() => {
-          scores = { 1:0, 2:0, 3:0, 4:0 };
+          scores = {1:0,2:0,3:0,4:0};
           resetGame();
           lastHit = null;
           gamePaused = false;
@@ -153,22 +151,27 @@ setInterval(() => {
     lastHit = null;
   }
 
-  const state = { type: "state", players, ball, scores };
+  const state = { type: "state", players, ball, scores, roles: {
+    1: aiEnabled[1] ? "AI" : "Player",
+    2: aiEnabled[2] ? "AI" : "Player",
+    3: aiEnabled[3] ? "AI" : "Player",
+    4: aiEnabled[4] ? "AI" : "Player"
+  }};
   broadcastTo("display", JSON.stringify(state));
-}, 1000 / 60);
+}, 1000/60);
 
 function broadcastTo(role, msg) {
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN && client.role === role) {
-      client.send(msg);
+  wss.clients.forEach(c => {
+    if (c.readyState === WebSocket.OPEN && c.role === role) {
+      c.send(msg);
     }
   });
 }
 
 function sendToId(id, msg) {
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN && client.role === "esp" && client.id === id) {
-      client.send(msg);
+  wss.clients.forEach(c => {
+    if (c.readyState === WebSocket.OPEN && c.role === "esp" && c.id === id) {
+      c.send(msg);
     }
   });
 }
@@ -179,67 +182,59 @@ wss.on("connection", (ws, req) => {
 
   if (ws.role === "esp") {
     let freeId = null;
-    for (let i = 1; i <= 4; i++) {
+    for (let i=1;i<=4;i++) {
       let inUse = false;
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN && client.role === "esp" && client.id === i) {
-          inUse = true;
-        }
+      wss.clients.forEach(c => {
+        if (c.readyState === WebSocket.OPEN && c.role === "esp" && c.id === i) inUse = true;
       });
       if (!inUse) { freeId = i; break; }
     }
     ws.id = freeId;
-
-    if (!ws.id) {
-      ws.close(1000, "Nincs szabad játékos slot");
-      return;
-    }
-
-    console.log(`Új ESP csatlakozott, kiosztott ID: ${ws.id}`);
+    if (!ws.id) { ws.close(1000, "Nincs szabad slot"); return; }
+    console.log(`Új ESP, ID: ${ws.id}`);
     ws.send(JSON.stringify({ type: "welcome", id: ws.id }));
   }
 
-  ws.on("message", (msg) => {
+  ws.on("message", msg => {
     try {
       const data = JSON.parse(msg.toString());
-
       if (ws.role === "display" && data.type === "displaySize") {
-        FIELD_W = data.width;
-        FIELD_H = data.height;
-        console.log(`Pálya mérete beállítva: ${FIELD_W}x${FIELD_H}`);
+        FIELD_W = data.width; FIELD_H = data.height;
+        console.log(`Pálya: ${FIELD_W}x${FIELD_H}`);
         resetGame();
         return;
       }
-
       if (ws.role === "esp" && ws.id) {
-        lastInputTime[ws.id] = Date.now();
-        aiEnabled[ws.id] = false;  // kikapcsoljuk az AI-t, ha jön input
-        if (gamePaused) return;
-
-        if (ws.id === 1 || ws.id === 2) {
-          if (data.dir === "up") players[ws.id].dir = -1;
-          else if (data.dir === "down") players[ws.id].dir = 1;
-          else players[ws.id].dir = 0;
+        if (data.type === "join") {
+          aiEnabled[ws.id] = false;
+          console.log(`Játékos ${ws.id} lett Player`);
+          return;
         }
-        if (ws.id === 3 || ws.id === 4) {
-          if (data.dir === "left") players[ws.id].dir = 1;
-          else if (data.dir === "right") players[ws.id].dir = -1;
-          else players[ws.id].dir = 0;
+        if (!aiEnabled[ws.id]) {
+          lastInputTime[ws.id] = Date.now();
+          if (gamePaused) return;
+          if (ws.id===1||ws.id===2) {
+            if (data.dir==="up") players[ws.id].dir=-1;
+            else if (data.dir==="down") players[ws.id].dir=1;
+            else players[ws.id].dir=0;
+          }
+          if (ws.id===3||ws.id===4) {
+            if (data.dir==="left") players[ws.id].dir=1;
+            else if (data.dir==="right") players[ws.id].dir=-1;
+            else players[ws.id].dir=0;
+          }
         }
       }
-    } catch (e) {
-      console.error("Hibás üzenet:", msg.toString());
-    }
+    } catch(e) { console.error("Hibás üzenet:", msg.toString()); }
   });
 
   ws.on("close", () => {
-    console.log(`Kapcsolat bontva: ${ws.role} ${ws.id || ""}`);
-    if (ws.role === "esp" && ws.id) {
-      players[ws.id].dir = 0;
+    console.log(`Kapcsolat bontva: ${ws.role} ${ws.id||""}`);
+    if (ws.role==="esp"&&ws.id) {
+      players[ws.id].dir=0;
+      aiEnabled[ws.id]=true;
     }
   });
 });
 
-server.listen(8080, "0.0.0.0", () => {
-  console.log("HTTP+WS szerver fut: http://localhost:8080/");
-});
+server.listen(8080,"0.0.0.0",()=>console.log("HTTP+WS szerver fut: http://localhost:8080/"));

@@ -11,11 +11,12 @@ WebSocketsClient webSocket;
 // joystick pins (ESP32-S2 Mini)
 const int pinX = 3;
 const int pinY = 2;
-const int joySwitchPin = 4;
+const int joySwitchPin = 4;   // gomb
 const int soundPin = 5;
 
 String lastDir = "stop";
 int espId = 0;  // a szerver tölti be
+bool joined = false;  // alapból AI, gombbal vált Player-re
 
 // observed min/max (for runtime calibration)
 int obsMinX = 65535, obsMaxX = 0;
@@ -45,6 +46,7 @@ void setup() {
   Serial.println("\nWiFi ok");
 
   pinMode(soundPin, OUTPUT);
+  pinMode(joySwitchPin, INPUT_PULLUP);
 
   // csak type=esp, ID-t szerver ad
   String path = String("/4playerpong?type=esp");
@@ -75,53 +77,67 @@ void setup() {
 void loop() {
   webSocket.loop();
 
-  int xVal = readAvg(pinX);
-  int yVal = readAvg(pinY);
-
-  // update observed min/max
-  if (xVal < obsMinX) obsMinX = xVal;
-  if (xVal > obsMaxX) obsMaxX = xVal;
-  if (yVal < obsMinY) obsMinY = yVal;
-  if (yVal > obsMaxY) obsMaxY = yVal;
-
-  int rangeX = obsMaxX - obsMinX;
-  int rangeY = obsMaxY - obsMinY;
-
-  if (rangeX < 100) rangeX = 1000;
-  if (rangeY < 100) rangeY = 1000;
-
-  int centerX = (obsMinX + obsMaxX) / 2;
-  int centerY = (obsMinY + obsMaxY) / 2;
-
-  int deltaX = xVal - centerX;
-  int deltaY = yVal - centerY;
-  int absDX = abs(deltaX);
-  int absDY = abs(deltaY);
-
-  // nagyobb deadzone
-  int threshX = max(rangeX / 3, 900);
-  int threshY = max(rangeY / 3, 900);
-
-  String dir = "stop";
-
-  if (absDY > threshY && absDY >= absDX) {
-    dir = (deltaY < 0) ? "up" : "down";
-  } else if (absDX > threshX) {
-    dir = (deltaX < 0) ? "left" : "right";
-  } else {
-    dir = "stop";
-  }
-
-  unsigned long now = millis();
-  if (dir != lastDir || (dir == "stop" && now - lastSend > 500)) {
-    DynamicJsonDocument doc(128);
-    doc["dir"] = dir;
-    char buffer[128];
+  // gomb lenyomás → Player mód
+  if (digitalRead(joySwitchPin) == LOW && !joined) {
+    DynamicJsonDocument doc(64);
+    doc["type"] = "join";
+    char buffer[64];
     serializeJson(doc, buffer, sizeof(buffer));
     webSocket.sendTXT(buffer);
-    Serial.printf("X:%d Y:%d -> %s\n", xVal, yVal, dir.c_str());
-    lastDir = dir;
-    lastSend = now;
+    joined = true;
+    Serial.println("JOIN küldve → Player mód!");
+    delay(500);  // debounce
+  }
+
+  if (joined) {
+    int xVal = readAvg(pinX);
+    int yVal = readAvg(pinY);
+
+    // update observed min/max
+    if (xVal < obsMinX) obsMinX = xVal;
+    if (xVal > obsMaxX) obsMaxX = xVal;
+    if (yVal < obsMinY) obsMinY = yVal;
+    if (yVal > obsMaxY) obsMaxY = yVal;
+
+    int rangeX = obsMaxX - obsMinX;
+    int rangeY = obsMaxY - obsMinY;
+
+    if (rangeX < 100) rangeX = 1000;
+    if (rangeY < 100) rangeY = 1000;
+
+    int centerX = (obsMinX + obsMaxX) / 2;
+    int centerY = (obsMinY + obsMaxY) / 2;
+
+    int deltaX = xVal - centerX;
+    int deltaY = yVal - centerY;
+    int absDX = abs(deltaX);
+    int absDY = abs(deltaY);
+
+    // nagyobb deadzone
+    int threshX = max(rangeX / 3, 900);
+    int threshY = max(rangeY / 3, 900);
+
+    String dir = "stop";
+
+    if (absDY > threshY && absDY >= absDX) {
+      dir = (deltaY < 0) ? "up" : "down";
+    } else if (absDX > threshX) {
+      dir = (deltaX < 0) ? "left" : "right";
+    } else {
+      dir = "stop";
+    }
+
+    unsigned long now = millis();
+    if (dir != lastDir || (dir == "stop" && now - lastSend > 500)) {
+      DynamicJsonDocument doc(128);
+      doc["dir"] = dir;
+      char buffer[128];
+      serializeJson(doc, buffer, sizeof(buffer));
+      webSocket.sendTXT(buffer);
+      Serial.printf("X:%d Y:%d -> %s\n", xVal, yVal, dir.c_str());
+      lastDir = dir;
+      lastSend = now;
+    }
   }
 
   delay(50);

@@ -41,6 +41,12 @@
     text-align:center;
     z-index:10;
   }
+  #roles {
+    font-size:18px;
+    margin-bottom:6px;
+    text-align:center;
+    z-index:10;
+  }
   canvas {
     background:#0b2a3a;
     border:6px solid #022539;
@@ -58,10 +64,8 @@
 </header>
 
 <div id="game-wrap">
-  <div id="scoreboard">
-    Pontszámok: <span id="scores">—</span>
-  </div>
-  <!-- induláskor a teljes képernyő felbontását állítjuk be -->
+  <div id="scoreboard">Pontszámok: <span id="scores">—</span></div>
+  <div id="roles">Várakozás...</div>
   <canvas id="game"></canvas>
 </div>
 
@@ -82,7 +86,6 @@
     socket = new WebSocket(wsUrl);
     socket.onopen = () => {
       updateWSState('csatlakozva');
-      // elküldjük a szervernek a kijelző méretét
       socket.send(JSON.stringify({
         type: "displaySize",
         width: canvas.width,
@@ -94,16 +97,25 @@
       updateWSState('kapcsolat bontva, újracsatlakozás...');
       setTimeout(() => location.reload(), 2000);
     };
-    
     socket.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
       if (msg.type === "state") {
         gameState = msg;
         document.getElementById("scores").textContent =
           `Bal: ${msg.scores[1]} | Jobb: ${msg.scores[2]} | Felső: ${msg.scores[3]} | Alsó: ${msg.scores[4]}`;
+
+        if (msg.roles) {
+          const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
+          let txt = "";
+          for (let i=1;i<=4;i++) {
+            txt += `${names[i]}: ${msg.roles[i]}  |  `;
+          }
+          txt += "Nyomd meg a gombot a belépéshez!";
+          document.getElementById("roles").textContent = txt;
+        }
       }
       if (msg.type === "winner") {
-        const winnerNames = {1:"Bal", 2:"Jobb", 3:"Felső", 4:"Alsó"};
+        const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
         winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
         if (winnerTimeout) clearTimeout(winnerTimeout);
         winnerTimeout = setTimeout(() => { winnerMessage = null; }, 3000);
@@ -128,19 +140,12 @@
       ctx.fillText("Várakozás a szerverre...", canvas.width/2 - 150, canvas.height/2);
     }
 
-    ctx.fillStyle = "#75e0ff"; // bal
-    ctx.fillRect(30, p1y, 20, 120);
+    ctx.fillStyle = "#75e0ff"; ctx.fillRect(30, p1y, 20, 120);
+    ctx.fillStyle = "#ffd57a"; ctx.fillRect(canvas.width-50, p2y, 20, 120);
+    ctx.fillStyle = "#9effa3"; ctx.fillRect(p3x, 30, 120, 20);
+    ctx.fillStyle = "#ff9ecb"; ctx.fillRect(p4x, canvas.height-50, 120, 20);
 
-    ctx.fillStyle = "#ffd57a"; // jobb
-    ctx.fillRect(canvas.width-50, p2y, 20, 120);
-
-    ctx.fillStyle = "#9effa3"; // felső
-    ctx.fillRect(p3x, 30, 120, 20);
-
-    ctx.fillStyle = "#ff9ecb"; // alsó
-    ctx.fillRect(p4x, canvas.height-50, 120, 20);
-
-    ctx.fillStyle = "white"; // labda
+    ctx.fillStyle = "white";
     ctx.beginPath();
     ctx.arc(bx, by, 12, 0, Math.PI*2);
     ctx.fill();
@@ -152,7 +157,6 @@
       ctx.fillText(winnerMessage, canvas.width/2, canvas.height/2);
       ctx.textAlign = "left";
     }
-
     requestAnimationFrame(draw);
   }
   draw();
