@@ -81,23 +81,27 @@
   let winnerMessage = null;
   let winnerTimeout = null;
 
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+function resizeCanvas() {
+  const headerH = document.querySelector("header").offsetHeight;
+  const scoreH  = document.getElementById("scoreboard").offsetHeight
+                + document.getElementById("roles").offsetHeight;
 
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({
-        type: "displaySize",
-        width: canvas.width,
-        height: canvas.height
-      }));
-    }
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - headerH - scoreH;
+
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: "displaySize",
+      width: canvas.width,
+      height: canvas.height
+    }));
   }
+}
 
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
   setTimeout(resizeCanvas, 500);
-  
+
   function tryConnect() {
     updateWSState('próbálkozás...');
     socket = new WebSocket(wsUrl);
