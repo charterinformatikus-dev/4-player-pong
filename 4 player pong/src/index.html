@@ -42,10 +42,13 @@
     z-index:10;
   }
   #roles {
-    font-size:18px;
+    font-size:22px;
     margin-bottom:6px;
     text-align:center;
     z-index:10;
+  }
+  #roles div {
+  line-height: 1.4;
   }
   canvas {
     background:#0b2a3a;
@@ -80,14 +83,14 @@
   let gameState = null;
   let winnerMessage = null;
   let winnerTimeout = null;
-
+  
 function resizeCanvas() {
   const headerH = document.querySelector("header").offsetHeight;
   const scoreH  = document.getElementById("scoreboard").offsetHeight
                 + document.getElementById("roles").offsetHeight;
 
   canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - headerH - scoreH;
+  canvas.height = window.innerHeight - headerH - scoreH - 20; // extra hely a biztonság kedvéért
 
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({
@@ -101,7 +104,7 @@ function resizeCanvas() {
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
   setTimeout(resizeCanvas, 500);
-
+  
   function tryConnect() {
     updateWSState('próbálkozás...');
     socket = new WebSocket(wsUrl);
@@ -127,13 +130,25 @@ function resizeCanvas() {
 
         if (msg.roles) {
           const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-          let txt = "";
+          const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
+
+          let html = "";
           for (let i=1;i<=4;i++) {
-            txt += `${names[i]}: ${msg.roles[i]}  |  `;
+            html += `<div style="
+              font-size:32px;
+              font-weight:bold;
+              color:${colors[i]};
+              margin:6px 0;
+            ">${names[i]}: ${msg.roles[i]}</div>`;
           }
-          txt += "Nyomd meg a gombot a belépéshez!";
-          document.getElementById("roles").textContent = txt;
+
+          html += `<div style="font-size:20px; margin-top:10px; color:#fff; opacity:0.8;">
+            Nyomd meg a gombot a belépéshez!
+          </div>`;
+
+          document.getElementById("roles").innerHTML = html;
         }
+
       }
       if (msg.type === "winner") {
         const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
