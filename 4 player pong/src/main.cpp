@@ -3,8 +3,12 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 
+// ====== WIFI ======
 const char* ssid = "ESP_ROUTER";
 const char* password = "charter2019";
+
+// ====== FIX KLIENS ID (1..4) ======
+#define ESP_ID 2   // ← állítsd minden eszközön 1..4 közé
 
 WebSocketsClient webSocket;
 
@@ -15,7 +19,6 @@ const int joySwitchPin = 4;   // gomb
 const int soundPin = 5;
 
 String lastDir = "stop";
-int espId = 0;  // a szerver tölti be
 bool joined = false;  // alapból AI, gombbal vált Player-re
 
 // observed min/max (for runtime calibration)
@@ -37,27 +40,19 @@ int readAvg(int pin, int samples = 6) {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(soundPin, OUTPUT);
-  tone(soundPin, 1000, 1000);
-  delay(1000);
-  
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
   Serial.println("\nWiFi ok");
 
-  
+  pinMode(soundPin, OUTPUT);
   pinMode(joySwitchPin, INPUT_PULLUP);
 
-  
-
-  // csak type=esp, ID-t szerver ad
-  String path = String("/4playerpong?type=esp");
-  Serial.println("raspberrypi.local");
+  // Csatlakozás fix, compile-time ID-val
+  String path = String("/4playerpong?type=esp&id=") + String(ESP_ID);
   webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
@@ -79,7 +74,7 @@ void setup() {
   obsMinY = cy - 512;
   obsMaxY = cy + 512;
 
-  Serial.printf("Közép: X:%d Y:%d\n", cx, cy);
+  Serial.printf("Közép: X:%d Y:%d | ESP_ID=%d\n", cx, cy, ESP_ID);
 }
 
 void loop() {
@@ -127,6 +122,7 @@ void loop() {
 
     String dir = "stop";
 
+    // iránylogika VÁLTOZATLAN (a szerveredhez igazodva)
     if (absDY > threshY && absDY >= absDX) {
       dir = (deltaY < 0) ? "up" : "down";
     } else if (absDX > threshX) {
@@ -176,14 +172,10 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
           delay(320);
           noTone(soundPin);
         }
-        if (doc["type"] == "welcome") {
-          espId = doc["id"];
-          Serial.printf("Szerver kiosztotta az ID-t: %d\n", espId);
-        }
+        // "welcome" üzenetet figyelmen kívül hagyjuk — az ID compile-time fix (ESP_ID)
       }
       break;
     }
     default:
       break;
   }
-}

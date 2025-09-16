@@ -173,17 +173,21 @@ wss.on("connection", (ws, req) => {
   ws.role = params.type || "unknown";
 
   if (ws.role === "esp") {
-    let freeId = null;
-    for (let i=1;i<=4;i++) {
-      let inUse = false;
-      wss.clients.forEach(c => {
-        if (c.readyState === WebSocket.OPEN && c.role === "esp" && c.id === i) inUse = true;
-      });
-      if (!inUse) { freeId = i; break; }
+    // Kötelező, kliens által megadott ID (1..4)
+    const wantId = parseInt(params.id, 10);
+    if (!wantId || wantId < 1 || wantId > 4) {
+      ws.close(1008, "Érvénytelen vagy hiányzó id (1..4)"); return;
     }
-    ws.id = freeId;
-    if (!ws.id) { ws.close(1000, "Nincs szabad slot"); return; }
+    // Foglalt-e?
+    let inUse = false;
+    wss.clients.forEach(c => {
+      if (c.readyState === WebSocket.OPEN && c.role === "esp" && c.id === wantId) inUse = true;
+    });
+    if (inUse) { ws.close(1008, "Az id már foglalt"); return; }
+
+    ws.id = wantId;
     console.log(`Új ESP, ID: ${ws.id}`);
+    // opcionális visszajelzés (a kliens nem használja):
     ws.send(JSON.stringify({ type: "welcome", id: ws.id }));
   }
 
@@ -199,6 +203,7 @@ wss.on("connection", (ws, req) => {
       if (ws.role === "esp" && ws.id) {
         if (data.type === "join") {
           aiEnabled[ws.id] = false;
+          players[ws.id].dir = 0; // joinkor álljon meg az ütő
           console.log(`Játékos ${ws.id} lett Player`);
           return;
         }
@@ -211,6 +216,7 @@ wss.on("connection", (ws, req) => {
             else players[ws.id].dir=0;
           }
           if (ws.id===3||ws.id===4) {
+            // MEGLÉVŐ hozzárendelésed változatlanul:
             if (data.dir==="left") players[ws.id].dir=1;
             else if (data.dir==="right") players[ws.id].dir=-1;
             else players[ws.id].dir=0;
