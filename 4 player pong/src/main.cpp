@@ -21,6 +21,8 @@ int espId = 0;
 int obsMinX = 65535, obsMaxX = 0;
 int obsMinY = 65535, obsMaxY = 0;
 
+unsigned long lastSend = 0;  // biztonsági stop timer
+
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
 int readAvg(int pin, int samples = 6) {
@@ -42,17 +44,21 @@ void setup() {
   }
   Serial.println("\nWiFi ok");
 
-  uint64_t chipid = ESP.getEfuseMac();
-  espId = (chipid & 0xFF) % 4 + 1;
-  Serial.printf("Saját ID: %d (MAC alapú)\n", espId);
+  pinMode(soundPin, OUTPUT);
+
+  // IP alapú ID kiosztás
+  IPAddress ip = WiFi.localIP();
+  int lastOctet = ip[3];
+  espId = (lastOctet % 4) + 1;
+  Serial.printf("Saját IP: %s, ID: %d\n", ip.toString().c_str(), espId);
 
   String path = String("/4playerpong?type=esp&id=") + espId;
   webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
 
-  // quick initial center sampling (leave joystick centered for best result)
-  Serial.println("Calibrating center (keep joystick neutral)...");
+  // quick initial center sampling
+  Serial.println("Kalibrálás (joystick középen tart)... ");
   long sx = 0, sy = 0;
   const int N = 30;
   for (int i = 0; i < N; ++i) {
@@ -61,10 +67,14 @@ void setup() {
   }
   int cx = sx / N;
   int cy = sy / N;
-  // seed observed min/max with the center to avoid wild thresholds until we see extremes
-  obsMinX = obsMaxX = cx;
-  obsMinY = obsMaxY = cy;
-  Serial.printf("Initial center X:%d Y:%d\n", cx, cy);
+
+  // induló tartomány ±512
+  obsMinX = cx - 512;
+  obsMaxX = cx + 512;
+  obsMinY = cy - 512;
+  obsMaxY = cy + 512;
+
+  Serial.printf("Közép: X:%d Y:%d\n", cx, cy);
 }
 
 void loop() {
@@ -73,7 +83,7 @@ void loop() {
   int xVal = readAvg(pinX);
   int yVal = readAvg(pinY);
 
-  // update observed min/max (adaptive calibration)
+  // update observed min/max
   if (xVal < obsMinX) obsMinX = xVal;
   if (xVal > obsMaxX) obsMaxX = xVal;
   if (yVal < obsMinY) obsMinY = yVal;
@@ -82,7 +92,6 @@ void loop() {
   int rangeX = obsMaxX - obsMinX;
   int rangeY = obsMaxY - obsMinY;
 
-  // fallback if we don't yet have a good range
   if (rangeX < 100) rangeX = 1000;
   if (rangeY < 100) rangeY = 1000;
 
@@ -94,13 +103,12 @@ void loop() {
   int absDX = abs(deltaX);
   int absDY = abs(deltaY);
 
-  // threshold: percentage of the observed range (20%) but at least a minima
-  int threshX = max(rangeX / 5, 300); // ~20% or at least 300
-  int threshY = max(rangeY / 5, 300);
+  // nagyobb deadzone
+  int threshX = max(rangeX / 3, 900);
+  int threshY = max(rangeY / 3, 900);
 
   String dir = "stop";
 
-  // prefer the axis with the larger relative movement (so diagonals choose the dominant axis)
   if (absDY > threshY && absDY >= absDX) {
     dir = (deltaY < 0) ? "up" : "down";
   } else if (absDX > threshX) {
@@ -109,17 +117,17 @@ void loop() {
     dir = "stop";
   }
 
-  // only send when direction changes (simple hysteresis)
-  if (dir != lastDir) {
+  unsigned long now = millis();
+  if (dir != lastDir || (dir == "stop" && now - lastSend > 500)) {
     DynamicJsonDocument doc(128);
     doc["dir"] = dir;
     doc["id"] = espId;
     char buffer[128];
     serializeJson(doc, buffer, sizeof(buffer));
     webSocket.sendTXT(buffer);
-    Serial.printf("X:%d Y:%d  minX:%d maxX:%d minY:%d maxY:%d  -> %s\n",
-      xVal, yVal, obsMinX, obsMaxX, obsMinY, obsMaxY, dir.c_str());
+    Serial.printf("X:%d Y:%d -> %s\n", xVal, yVal, dir.c_str());
     lastDir = dir;
+    lastSend = now;
   }
 
   delay(50);
@@ -133,9 +141,22 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
     case WStype_CONNECTED:
       Serial.println("WS kapcsolódva");
       break;
-    case WStype_TEXT:
-      Serial.printf("WS üzenet: %s\n", payload);
+    case WStype_TEXT: {
+      String msg = String((char*)payload);
+      Serial.printf("WS üzenet: %s\n", msg.c_str());
+
+      DynamicJsonDocument doc(128);
+      DeserializationError err = deserializeJson(doc, msg);
+      if (!err) {
+        if (doc["type"] == "hit") {
+          // hang effekt
+          tone(soundPin, 1000, 100);
+          delay(120);
+          noTone(soundPin);
+        }
+      }
       break;
+    }
     default:
       break;
   }

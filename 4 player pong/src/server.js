@@ -7,11 +7,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: "/4playerpong" });
 
-// ---- Statikus fájlok kiszolgálása ----
-// Ahol az index.html van, azt a mappát add meg:
 app.use(express.static(__dirname));
 
-// ---- Játék logika ----
 let players = {
   1: { y: 200, dir: 0 },
   2: { y: 200, dir: 0 },
@@ -19,7 +16,6 @@ let players = {
   4: { x: 200, dir: 0 }
 };
 let ball = { x: 300, y: 200, vx: 3, vy: 2 };
-// Pontszámok
 let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
 function resetBall() {
@@ -30,23 +26,44 @@ function resetBall() {
 }
 
 setInterval(() => {
-  // Játékosok mozgatása (marad)
+  // paddlek mozgatása
   if (players[1]) players[1].y = Math.max(0, Math.min(340, players[1].y + players[1].dir * 5));
   if (players[2]) players[2].y = Math.max(0, Math.min(340, players[2].y + players[2].dir * 5));
   if (players[3]) players[3].x = Math.max(0, Math.min(540, players[3].x + players[3].dir * 5));
   if (players[4]) players[4].x = Math.max(0, Math.min(540, players[4].x + players[4].dir * 5));
 
-  // Labda mozgatás
+  // labda mozgatás
   ball.x += ball.vx;
   ball.y += ball.vy;
 
-  // Ütközések
+  // ütközés paddlékkel
+  if (ball.x <= 30 && ball.y >= players[1].y && ball.y <= players[1].y + 60) {
+    ball.vx = -ball.vx;
+    ball.x = 30;
+    sendToId(1, JSON.stringify({ type: "hit" }));
+  }
+  if (ball.x >= 570 && ball.y >= players[2].y && ball.y <= players[2].y + 60) {
+    ball.vx = -ball.vx;
+    ball.x = 570;
+    sendToId(2, JSON.stringify({ type: "hit" }));
+  }
+  if (ball.y <= 30 && ball.x >= players[3].x && ball.x <= players[3].x + 60) {
+    ball.vy = -ball.vy;
+    ball.y = 30;
+    sendToId(3, JSON.stringify({ type: "hit" }));
+  }
+  if (ball.y >= 370 && ball.x >= players[4].x && ball.x <= players[4].x + 60) {
+    ball.vy = -ball.vy;
+    ball.y = 370;
+    sendToId(4, JSON.stringify({ type: "hit" }));
+  }
+
+  // pontszám ha elhagyja a pályát
   if (ball.y < 0) { scores[4]++; resetBall(); }
   if (ball.y > 400) { scores[3]++; resetBall(); }
   if (ball.x < 0) { scores[2]++; resetBall(); }
   if (ball.x > 600) { scores[1]++; resetBall(); }
 
-  // Állapot broadcast
   const state = { type: "state", players, ball, scores };
   broadcastTo("display", JSON.stringify(state));
 }, 1000 / 60);
@@ -54,6 +71,14 @@ setInterval(() => {
 function broadcastTo(role, msg) {
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN && client.role === role) {
+      client.send(msg);
+    }
+  });
+}
+
+function sendToId(id, msg) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN && client.role === "esp" && client.id === id) {
       client.send(msg);
     }
   });

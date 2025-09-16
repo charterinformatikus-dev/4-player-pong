@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4-játékos Pong — Display</title>
+<title>4-játékos Pong</title>
 <style>
   body { margin:0; font-family:system-ui,Segoe UI,Roboto; background:#0b1220; color:#dfe7ff; display:flex; flex-direction:column; height:100vh; }
   header { padding:10px 16px; display:flex; gap:12px; align-items:center; background:#071025; box-shadow:0 2px 6px rgba(0,0,0,.6); }
@@ -38,14 +38,8 @@ let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
 let socket = null;
 let gameState = null;
 
-// induló pozíciók középre
-let players = {
-  1: { y: 400/2 - 30 },
-  2: { y: 400/2 - 30 },
-  3: { x: 600/2 - 30 },
-  4: { x: 600/2 - 30 }
-};
-let ball = { x: 600/2, y: 400/2 };
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 
 function tryConnect() {
   updateWSState('próbálkozás...');
@@ -53,7 +47,7 @@ function tryConnect() {
   socket.onopen = () => updateWSState('csatlakozva');
   socket.onerror = () => updateWSState('hiba');
   socket.onclose = () => {
-    updateWSState('kapcsolat bontva, oldal újratöltése...');
+    updateWSState('kapcsolat bontva, újracsatlakozás...');
     setTimeout(() => location.reload(), 2000);
   };
   
@@ -61,8 +55,6 @@ function tryConnect() {
     const msg = JSON.parse(ev.data);
     if (msg.type === "state") {
       gameState = msg;
-      players = msg.players;
-      ball = msg.ball;
       document.getElementById("scores").textContent =
         `Bal: ${msg.scores[1]} | Jobb: ${msg.scores[2]} | Felső: ${msg.scores[3]} | Alsó: ${msg.scores[4]}`;
     }
@@ -70,13 +62,9 @@ function tryConnect() {
 }
 tryConnect();
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // ha nincs adat, középre tesszük
   let p1y = gameState?.players?.[1]?.y ?? canvas.height/2 - 30;
   let p2y = gameState?.players?.[2]?.y ?? canvas.height/2 - 30;
   let p3x = gameState?.players?.[3]?.x ?? canvas.width/2 - 30;
@@ -90,7 +78,6 @@ function draw() {
     ctx.fillText("Várakozás a szerverre...", 200, 200);
   }
 
-  // paddles
   ctx.fillStyle = "#75e0ff"; // bal
   ctx.fillRect(20, p1y, 10, 60);
 
@@ -103,15 +90,13 @@ function draw() {
   ctx.fillStyle = "#ff9ecb"; // alsó
   ctx.fillRect(p4x, canvas.height-30, 60, 10);
 
-  // labda
-  ctx.fillStyle = "white";
+  ctx.fillStyle = "white"; // labda
   ctx.beginPath();
   ctx.arc(bx, by, 8, 0, Math.PI*2);
   ctx.fill();
 
   requestAnimationFrame(draw);
 }
-
 draw();
 
 function updateWSState(s){ document.getElementById('ws-state').textContent = s; }
