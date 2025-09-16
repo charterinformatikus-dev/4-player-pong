@@ -81,6 +81,23 @@
   let winnerMessage = null;
   let winnerTimeout = null;
 
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: "displaySize",
+        width: canvas.width,
+        height: canvas.height
+      }));
+    }
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  setTimeout(resizeCanvas, 500);
+  
   function tryConnect() {
     updateWSState('próbálkozás...');
     socket = new WebSocket(wsUrl);
