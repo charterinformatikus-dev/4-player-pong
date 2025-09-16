@@ -37,19 +37,27 @@ int readAvg(int pin, int samples = 6) {
 
 void setup() {
   Serial.begin(115200);
+  pinMode(soundPin, OUTPUT);
+  tone(soundPin, 1000, 1000);
+  delay(1000);
+  
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
   Serial.println("\nWiFi ok");
 
-  pinMode(soundPin, OUTPUT);
+  
   pinMode(joySwitchPin, INPUT_PULLUP);
+
+  
 
   // csak type=esp, ID-t szerver ad
   String path = String("/4playerpong?type=esp");
+  Serial.println("raspberrypi.local");
   webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
