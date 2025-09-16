@@ -60,14 +60,6 @@ setInterval(() => {
     return;
   }
 
-  for (let i=1;i<=4;i++) {
-    if (!aiEnabled[i] && lastInputTime[i] > 0 && (Date.now() - lastInputTime[i] > 10000)) {
-      console.log(`Játékos ${i} inaktív → AI visszaveszi`);
-      aiEnabled[i] = true;
-      players[i].dir = 0;
-    }
-  }
-  
   // AI mozgatás
   for (let i=1;i<=4;i++) {
     if (aiEnabled[i]) {
