@@ -11,7 +11,7 @@
   #status { margin-left:auto; font-size:13px; opacity:.9; }
   #game-wrap { flex:1; display:flex; align-items:center; justify-content:center; }
   canvas { background:#0b2a3a; border:6px solid #022539; border-radius:8px; max-width:100%; max-height:100%; }
-  #info { padding:10px 16px; font-size:13px; background:#071025; display:flex; gap:12px; align-items:center; }
+  #info { padding:10px 16px; font-size:13px; background:#071025; display:flex; gap:12px; align-items:center; height: 40px;}
   .controller { min-width:160px; padding:6px 10px; background:#052233; border-radius:6px; }
   .small { font-size:12px; color:#9fb4c9; }
 </style>
@@ -34,7 +34,7 @@
 </div>
 
 <script>
-let wsUrl = "ws://192.168.88.157:8080/4playerpong?type=display";
+let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
 let socket = null;
 let gameState = null;
 
