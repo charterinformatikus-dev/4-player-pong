@@ -20,7 +20,6 @@ let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let lastHit = null; // utolsó ütő
 
 let gamePaused = false;
-let pauseUntil = 0;
 
 function resetBall() {
   ball.x = 300;
@@ -83,7 +82,6 @@ setInterval(() => {
 
       // játék leállítása 3 másodpercre
       gamePaused = true;
-      pauseUntil = Date.now() + 3000;
 
       // nullázás csak szünet végén
       setTimeout(() => {
@@ -91,7 +89,7 @@ setInterval(() => {
         resetBall();
         lastHit = null;
         gamePaused = false;
-      }, 3000);
+      }, 2000);
     }
   }
 
@@ -153,9 +151,9 @@ wss.on("connection", (ws, req) => {
   ws.on("message", (msg) => {
     try {
       if (ws.role === "esp" && ws.id) {
-      if (gamePaused) return; // szünet alatt ignoráljuk
-  // normál paddle iránykezelés
-}
+        if (gamePaused) return; // szünet alatt ignoráljuk
+      }
+      // normál paddle iránykezelés
       const data = JSON.parse(msg.toString());
       if (ws.role === "esp" && ws.id) {
         if (ws.id === 1 || ws.id === 2) {
