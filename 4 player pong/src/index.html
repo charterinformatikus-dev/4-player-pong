@@ -80,14 +80,14 @@
   let gameState = null;
   let winnerMessage = null;
   let winnerTimeout = null;
-
+  
 function resizeCanvas() {
   const headerH = document.querySelector("header").offsetHeight;
   const scoreH  = document.getElementById("scoreboard").offsetHeight
                 + document.getElementById("roles").offsetHeight;
 
   canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - headerH - scoreH;
+  canvas.height = window.innerHeight - headerH - scoreH - 20; // extra hely a biztonság kedvéért
 
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({
@@ -101,7 +101,7 @@ function resizeCanvas() {
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
   setTimeout(resizeCanvas, 500);
-
+  
   function tryConnect() {
     updateWSState('próbálkozás...');
     socket = new WebSocket(wsUrl);
