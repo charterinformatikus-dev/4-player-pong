@@ -130,7 +130,9 @@ function resizeCanvas() {
 
         if (msg.roles) {
           const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-          let txt = "";
+          const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
+
+          let html = "";
           for (let i=1;i<=4;i++) {
             html += `<div style="
               font-size:32px;
