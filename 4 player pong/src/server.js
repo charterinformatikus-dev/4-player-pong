@@ -173,7 +173,6 @@ wss.on("connection", (ws, req) => {
   ws.role = params.type || "unknown";
 
   if (ws.role === "esp") {
-    // Kötelező, kliens által megadott ID (1..4)
     const wantId = parseInt(params.id, 10);
     if (!wantId || wantId < 1 || wantId > 4) {
       ws.close(1008, "Érvénytelen vagy hiányzó id (1..4)"); return;
@@ -187,50 +186,58 @@ wss.on("connection", (ws, req) => {
 
     ws.id = wantId;
     console.log(`Új ESP, ID: ${ws.id}`);
-    // opcionális visszajelzés (a kliens nem használja):
+    // opcionális welcome
     ws.send(JSON.stringify({ type: "welcome", id: ws.id }));
   }
 
   ws.on("message", msg => {
     try {
       const data = JSON.parse(msg.toString());
+
       if (ws.role === "display" && data.type === "displaySize") {
         FIELD_W = data.width; FIELD_H = data.height;
         console.log(`Pálya: ${FIELD_W}x${FIELD_H}`);
         resetGame();
         return;
       }
+
       if (ws.role === "esp" && ws.id) {
         if (data.type === "join") {
+          // Idempotens: többször is jöhet, mindig Player módba tesszük
           aiEnabled[ws.id] = false;
-          players[ws.id].dir = 0; // joinkor álljon meg az ütő
-          console.log(`Játékos ${ws.id} lett Player`);
+          players[ws.id].dir = 0; // megállítjuk az ütőt
+          ws.send(JSON.stringify({ type: "joined", id: ws.id })); // ACK
+          console.log(`Játékos ${ws.id} Player mód`);
           return;
         }
+
         if (!aiEnabled[ws.id]) {
           lastInputTime[ws.id] = Date.now();
           if (gamePaused) return;
+
           if (ws.id===1||ws.id===2) {
             if (data.dir==="up") players[ws.id].dir=-1;
             else if (data.dir==="down") players[ws.id].dir=1;
             else players[ws.id].dir=0;
           }
           if (ws.id===3||ws.id===4) {
-            // MEGLÉVŐ hozzárendelésed változatlanul:
+            // marad az általad használt hozzárendelés
             if (data.dir==="left") players[ws.id].dir=1;
             else if (data.dir==="right") players[ws.id].dir=-1;
             else players[ws.id].dir=0;
           }
         }
       }
-    } catch(e) { console.error("Hibás üzenet:", msg.toString()); }
+    } catch(e) {
+      console.error("Hibás üzenet:", msg.toString());
+    }
   });
 
   ws.on("close", () => {
     console.log(`Kapcsolat bontva: ${ws.role} ${ws.id||""}`);
     if (ws.role==="esp"&&ws.id) {
       players[ws.id].dir=0;
-      aiEnabled[ws.id]=true;
+      aiEnabled[ws.id]=true; // szerver restartnál is ez lesz az alap
     }
   });
 });
