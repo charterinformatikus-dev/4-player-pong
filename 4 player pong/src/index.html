@@ -42,10 +42,13 @@
     z-index:10;
   }
   #roles {
-    font-size:18px;
+    font-size:22px;
     margin-bottom:6px;
     text-align:center;
     z-index:10;
+  }
+  #roles div {
+  line-height: 1.4;
   }
   canvas {
     background:#0b2a3a;
@@ -129,11 +132,21 @@ function resizeCanvas() {
           const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
           let txt = "";
           for (let i=1;i<=4;i++) {
-            txt += `${names[i]}: ${msg.roles[i]}  |  `;
+            html += `<div style="
+              font-size:32px;
+              font-weight:bold;
+              color:${colors[i]};
+              margin:6px 0;
+            ">${names[i]}: ${msg.roles[i]}</div>`;
           }
-          txt += "Nyomd meg a gombot a belépéshez!";
-          document.getElementById("roles").textContent = txt;
+
+          html += `<div style="font-size:20px; margin-top:10px; color:#fff; opacity:0.8;">
+            Nyomd meg a gombot a belépéshez!
+          </div>`;
+
+          document.getElementById("roles").innerHTML = html;
         }
+
       }
       if (msg.type === "winner") {
         const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
