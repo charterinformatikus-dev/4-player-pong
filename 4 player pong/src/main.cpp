@@ -8,7 +8,7 @@ const char* ssid = "ESP_ROUTER";
 const char* password = "charter2019";
 
 // ===== FIX KLIENS ID (1..4) =====
-#define ESP_ID 2  // <- állítsd 1..4 közé minden eszközön
+#define ESP_ID 4  // <- állítsd 1..4 közé minden eszközön
 
 WebSocketsClient webSocket;
 
@@ -21,6 +21,26 @@ const int soundPin = 5;
 String lastDir = "stop";
 bool joined = false;     // ténylegesen Player módban vagyunk-e
 bool wantJoin = false;   // szeretnénk-e Player módban lenni (kitart restartokon is)
+
+// ESP 1 (kell állitani)
+//#define DEADZONE_X 3750
+//#define DEADZONE_Y 3750
+
+// ESP 2
+//#define DEADZONE_X 3800
+//#define DEADZONE_Y 3750
+
+// ESP 3
+//#define DEADZONE_X 3875
+//#define DEADZONE_Y 3750
+
+// ESP 4
+#define DEADZONE_X 3750
+#define DEADZONE_Y 3750
+
+
+unsigned long lastDbg = 0;
+const unsigned long DBG_PERIOD_MS = 100;  // 100 ms-onként írunk ki
 
 // Kalibrációhoz
 int obsMinX = 65535, obsMaxX = 0;
@@ -50,6 +70,9 @@ void sendJoin() {
 
 void setup() {
   Serial.begin(115200);
+
+  tone(soundPin, 1500, 1000);
+  tone(soundPin, 750, 500);
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -123,16 +146,12 @@ void loop() {
     int absDX = abs(deltaX);
     int absDY = abs(deltaY);
 
-    // nagyobb deadzone
-    int threshX = max(rangeX / 3, 900);
-    int threshY = max(rangeY / 3, 900);
-
     String dir = "stop";
 
-    // Iránylogika változatlan
-    if (absDY > threshY && absDY >= absDX) {
+    // EREDETI iránylogika
+    if (absDY > DEADZONE_Y && absDY >= absDX) {
       dir = (deltaY < 0) ? "up" : "down";
-    } else if (absDX > threshX) {
+    } else if (absDX > DEADZONE_X) {
       dir = (deltaX < 0) ? "left" : "right";
     } else {
       dir = "stop";
@@ -148,6 +167,13 @@ void loop() {
       Serial.printf("X:%d Y:%d -> %s\n", xVal, yVal, dir.c_str());
       lastDir = dir;
       lastSend = now;
+    }
+    // --- DEBUG: joystick értékek Serial Monitorra ---
+    unsigned long nowDbg = millis();
+    if (nowDbg - lastDbg >= DBG_PERIOD_MS) {
+      Serial.printf("RAW X:%4d Y:%4d | centerX:%4d centerY:%4d | dX:%4d dY:%4d | rangeX:%4d rangeY:%4d | joined:%d\n",
+                    xVal, yVal, centerX, centerY, deltaX, deltaY, rangeX, rangeY, (int)joined);
+      lastDbg = nowDbg;
     }
   }
 
@@ -190,7 +216,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
           joined = true;
           Serial.printf("JOINED ACK, id=%d\n", ESP_ID);
         }
-        // "welcome" érkezhet, de nincs rá szükségünk compile-time ID mellett
+        // "welcome" érkezhet, de nincs rá szükség compile-time ID mellett
       }
       break;
     }
