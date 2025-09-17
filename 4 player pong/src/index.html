@@ -35,11 +35,11 @@
     overflow:hidden;
   }
   #scoreboard {
-    font-size:28px;
-    font-weight:bold;
-    margin-bottom:12px;
-    text-align:center;
-    z-index:10;
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    text-align: center;
+    z-index: 10;
   }
   #roles {
     font-size: 22px;
@@ -47,15 +47,15 @@
     z-index: 10;
     display: flex;
     justify-content: center;
-    flex-wrap: wrap; /* ha nem fér ki, törjön */
+    flex-wrap: wrap;
     gap: 16px;
+    margin-bottom: 8px;
   }
   #roles span {
-    line-height: 1.4;
-  }
-
-  #roles div {
-  line-height: 1.4;
+    font-size:28px;
+    font-weight:bold;
+    line-height:1.4;
+    white-space:nowrap;
   }
   canvas {
     background:#0b2a3a;
@@ -81,8 +81,6 @@
 
 <script>
   const canvas = document.getElementById('game');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
   const ctx = canvas.getContext('2d');
 
   let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
@@ -90,28 +88,30 @@
   let gameState = null;
   let winnerMessage = null;
   let winnerTimeout = null;
-  
-function resizeCanvas() {
-  const headerH = document.querySelector("header").offsetHeight;
-  const scoreH  = document.getElementById("scoreboard").offsetHeight
-                + document.getElementById("roles").offsetHeight;
 
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - headerH - scoreH - 20; // extra hely a biztonság kedvéért
+  const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
 
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({
-      type: "displaySize",
-      width: canvas.width,
-      height: canvas.height
-    }));
+  function resizeCanvas() {
+    const headerH = document.querySelector("header").offsetHeight;
+    const scoreH  = document.getElementById("scoreboard").offsetHeight
+                  + document.getElementById("roles").offsetHeight;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - headerH - scoreH - 20;
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: "displaySize",
+        width: canvas.width,
+        height: canvas.height
+      }));
+    }
   }
-}
 
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
   setTimeout(resizeCanvas, 500);
-  
+
   function tryConnect() {
     updateWSState('próbálkozás...');
     socket = new WebSocket(wsUrl);
@@ -132,28 +132,24 @@ function resizeCanvas() {
       const msg = JSON.parse(ev.data);
       if (msg.type === "state") {
         gameState = msg;
-        document.getElementById("scores").textContent =
-          `Bal: ${msg.scores[1]} | Jobb: ${msg.scores[2]} | Felső: ${msg.scores[3]} | Alsó: ${msg.scores[4]}`;
 
+        // 🎨 Színes scoreboard (név = paddle szín, pontszám = fehér)
+        document.getElementById("scores").innerHTML =
+          `<span style="color:${colors[1]}">Bal</span>: <span style="color:white">${msg.scores[1]}</span> |
+           <span style="color:${colors[2]}">Jobb</span>: <span style="color:white">${msg.scores[2]}</span> |
+           <span style="color:${colors[3]}">Felső</span>: <span style="color:white">${msg.scores[3]}</span> |
+           <span style="color:${colors[4]}">Alsó</span>: <span style="color:white">${msg.scores[4]}</span>`;
+
+        // 🎨 Színes roles vízszintesen
         if (msg.roles) {
           const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-          const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
-
           let html = "";
           for (let i=1;i<=4;i++) {
-            html += `<span style="
-              font-size:28px;
-              font-weight:bold;
-              color:${colors[i]};
-              margin:0 20px;
-              white-space:nowrap;
-            ">${names[i]}: ${msg.roles[i]}</span>`;
+            html += `<span style="color:${colors[i]}">${names[i]}: ${msg.roles[i]}</span>`;
           }
-
           html += `<span style="font-size:20px; margin-left:30px; color:#fff; opacity:0.8;">
             Nyomd meg a gombot a belépéshez!
           </span>`;
-
           document.getElementById("roles").innerHTML = html;
         }
       }
@@ -183,10 +179,10 @@ function resizeCanvas() {
       ctx.fillText("Várakozás a szerverre...", canvas.width/2 - 150, canvas.height/2);
     }
 
-    ctx.fillStyle = "#75e0ff"; ctx.fillRect(30, p1y, 20, 120);
-    ctx.fillStyle = "#ffd57a"; ctx.fillRect(canvas.width-50, p2y, 20, 120);
-    ctx.fillStyle = "#9effa3"; ctx.fillRect(p3x, 30, 120, 20);
-    ctx.fillStyle = "#ff9ecb"; ctx.fillRect(p4x, canvas.height-50, 120, 20);
+    ctx.fillStyle = colors[1]; ctx.fillRect(30, p1y, 20, 120);
+    ctx.fillStyle = colors[2]; ctx.fillRect(canvas.width-50, p2y, 20, 120);
+    ctx.fillStyle = colors[3]; ctx.fillRect(p3x, 30, 120, 20);
+    ctx.fillStyle = colors[4]; ctx.fillRect(p4x, canvas.height-50, 120, 20);
 
     ctx.fillStyle = "white";
     ctx.beginPath();
