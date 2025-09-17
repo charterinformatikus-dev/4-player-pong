@@ -8,7 +8,7 @@ const char* ssid = "ESP_ROUTER";
 const char* password = "charter2019";
 
 // ===== FIX KLIENS ID (1..4) =====
-#define ESP_ID 4  // <- állítsd 1..4 közé minden eszközön
+#define ESP_ID 1  // <- állítsd 1..4 közé minden eszközön
 
 WebSocketsClient webSocket;
 
@@ -22,9 +22,21 @@ String lastDir = "stop";
 bool joined = false;
 bool wantJoin = false;
 
-// Deadzone értékek (id-onként finomítható)
+// ESP 1
 #define DEADZONE_X 3750
 #define DEADZONE_Y 3750
+
+// ESP 2
+//#define DEADZONE_X 3800
+//#define DEADZONE_Y 3750
+
+// ESP 3
+//#define DEADZONE_X 3875
+//#define DEADZONE_Y 3750
+
+// ESP 4
+//#define DEADZONE_X 3750
+//#define DEADZONE_Y 3750
 
 // debug időzítés
 unsigned long lastDbg = 0;
@@ -75,6 +87,8 @@ void setup() {
 
   pinMode(soundPin, OUTPUT);
   pinMode(joySwitchPin, INPUT_PULLUP);
+  tone(soundPin, 1500, 1000);
+  tone(soundPin, 750, 500);
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -152,15 +166,14 @@ void loop() {
       webSocket.sendTXT(buffer);
       lastDir = dir;
       lastSend = now;
-
-      Serial.printf("X:%d Y:%d -> %s\n", xVal, yVal, dir.c_str());
     }
 
-    // debug
-    if (now - lastDbg >= DBG_PERIOD_MS) {
-      Serial.printf("RAW X:%4d Y:%4d | dX:%4d dY:%4d | joined:%d\n",
-                    xVal, yVal, deltaX, deltaY, (int)joined);
-      lastDbg = now;
+    // --- DEBUG: joystick értékek Serial Monitorra ---
+    unsigned long nowDbg = millis();
+    if (nowDbg - lastDbg >= DBG_PERIOD_MS) {
+      Serial.printf("RAW X:%4d Y:%4d | centerX:%4d centerY:%4d | dX:%4d dY:%4d | joined:%d\n",
+                    xVal, yVal, centerX, centerY, deltaX, deltaY, (int)joined);
+      lastDbg = nowDbg;
     }
   }
 }
