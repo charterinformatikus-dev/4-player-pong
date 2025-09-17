@@ -8,7 +8,7 @@ const char* ssid = "ESP_ROUTER";
 const char* password = "charter2019";
 
 // ===== FIX KLIENS ID (1..4) =====
-#define ESP_ID 1  // <- állítsd 1..4 közé minden eszközön
+#define ESP_ID 4  // <- állítsd 1..4 közé minden eszközön
 
 WebSocketsClient webSocket;
 
@@ -23,8 +23,8 @@ bool joined = false;
 bool wantJoin = false;
 
 // ESP 1
-#define DEADZONE_X 3750
-#define DEADZONE_Y 3750
+//#define DEADZONE_X 3750
+//#define DEADZONE_Y 3750
 
 // ESP 2
 //#define DEADZONE_X 3800
@@ -35,8 +35,8 @@ bool wantJoin = false;
 //#define DEADZONE_Y 3750
 
 // ESP 4
-//#define DEADZONE_X 3750
-//#define DEADZONE_Y 3750
+#define DEADZONE_X 3750
+#define DEADZONE_Y 3750
 
 // debug időzítés
 unsigned long lastDbg = 0;
