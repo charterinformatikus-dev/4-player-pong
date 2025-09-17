@@ -31,8 +31,8 @@ let lastInputTime = {1:0,2:0,3:0,4:0};
 function resetBall() {
   ball.x = FIELD_W/2;
   ball.y = FIELD_H/2;
-  ball.vx = Math.random() > 0.5 ? 6 : -6;
-  ball.vy = Math.random() > 0.5 ? 4 : -4;
+  ball.vx = Math.random() > 0.5 ? 7.5 : -7.5;
+  ball.vy = Math.random() > 0.5 ? 5 : -5;
   broadcastTo("esp", JSON.stringify({ type: "reset" }));
 }
 
