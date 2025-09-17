@@ -127,7 +127,7 @@ setInterval(() => {
   if (ball.x < -BALL_R || ball.x > FIELD_W + BALL_R || ball.y < -BALL_R || ball.y > FIELD_H + BALL_R) {
     if (lastHit) {
       scores[lastHit]++;
-      if (scores[lastHit] >= 10) {
+      if (scores[lastHit] >= 5) {
         console.log(`Játékos ${lastHit} nyert!`);
         broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
         gamePaused = true;
