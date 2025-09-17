@@ -22,22 +22,19 @@ String lastDir = "stop";
 bool joined = false;     // ténylegesen Player módban vagyunk-e
 bool wantJoin = false;   // szeretnénk-e Player módban lenni (kitart restartokon is)
 
+// Kalibrációhoz
 int obsMinX = 65535, obsMaxX = 0;
 int obsMinY = 65535, obsMaxY = 0;
 
 unsigned long lastSend = 0;
-const unsigned long SEND_INTERVAL = 33; // ~30 Hz
-
-// nem-blokkoló hang vezérlés
-bool toneActive = false;
-unsigned long toneEndTime = 0;
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
-int readAvg(int pin, int samples = 1) {  // gyorsabb, kevesebb minta
+int readAvg(int pin, int samples = 6) {
   long sum = 0;
   for (int i = 0; i < samples; ++i) {
     sum += analogRead(pin);
+    delay(2);
   }
   return (int)(sum / samples);
 }
@@ -51,25 +48,12 @@ void sendJoin() {
   Serial.println("JOIN elküldve");
 }
 
-void startTone(int freq, int dur) {
-  tone(soundPin, freq);
-  toneActive = true;
-  toneEndTime = millis() + dur;
-}
-
-void handleTone() {
-  if (toneActive && millis() >= toneEndTime) {
-    noTone(soundPin);
-    toneActive = false;
-  }
-}
-
 void setup() {
   Serial.begin(115200);
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(500);
     Serial.print(".");
   }
   Serial.println("\nWiFi ok");
@@ -81,15 +65,15 @@ void setup() {
   String path = String("/4playerpong?type=esp&id=") + String(ESP_ID);
   webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(3000);
+  webSocket.setReconnectInterval(5000);
 
-  // Kalibrálás (joystick középen tart)
+  // Gyors közép-mintavétel
   Serial.println("Kalibrálás (joystick középen tart)...");
   long sx = 0, sy = 0;
-  const int N = 20;
+  const int N = 30;
   for (int i = 0; i < N; ++i) {
-    sx += readAvg(pinX);
-    sy += readAvg(pinY);
+    sx += readAvg(pinX, 3);
+    sy += readAvg(pinY, 3);
   }
   int cx = sx / N;
   int cy = sy / N;
@@ -104,14 +88,14 @@ void setup() {
 
 void loop() {
   webSocket.loop();
-  handleTone();
 
   // Gomb: bekapcsoljuk a "wantJoin"-t és azonnal kérünk Player módot.
   if (digitalRead(joySwitchPin) == LOW) {
     if (!joined) {
-      wantJoin = true;
+      wantJoin = true;     // ragaszkodunk a Player módhoz a jövőben is
       sendJoin();
-      delay(200); // csak gomb-debounce
+      // debounce
+      delay(500);
     }
   }
 
@@ -139,40 +123,47 @@ void loop() {
     int absDX = abs(deltaX);
     int absDY = abs(deltaY);
 
+    // nagyobb deadzone
     int threshX = max(rangeX / 3, 900);
     int threshY = max(rangeY / 3, 900);
 
     String dir = "stop";
+
+    // Iránylogika változatlan
     if (absDY > threshY && absDY >= absDX) {
       dir = (deltaY < 0) ? "up" : "down";
     } else if (absDX > threshX) {
       dir = (deltaX < 0) ? "left" : "right";
+    } else {
+      dir = "stop";
     }
 
     unsigned long now = millis();
-    if (dir != lastDir || now - lastSend >= SEND_INTERVAL) {
-      DynamicJsonDocument doc(64);
+    if (dir != lastDir || (dir == "stop" && now - lastSend > 500)) {
+      DynamicJsonDocument doc(128);
       doc["dir"] = dir;
-      char buffer[64];
+      char buffer[128];
       serializeJson(doc, buffer, sizeof(buffer));
       webSocket.sendTXT(buffer);
-
       Serial.printf("X:%d Y:%d -> %s\n", xVal, yVal, dir.c_str());
       lastDir = dir;
       lastSend = now;
     }
   }
+
+  delay(50);
 }
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:
       Serial.println("WS bontva");
-      joined = false;
+      joined = false;             // hogy újra lehessen csatlakozni/joinolni
       break;
 
     case WStype_CONNECTED:
       Serial.println("WS kapcsolódva");
+      // Ha korábban Player-t kértünk, automatikusan re-join
       if (wantJoin) {
         sendJoin();
       }
@@ -187,13 +178,19 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
       if (!err) {
         const char* t = doc["type"] | "";
         if (!strcmp(t, "hit")) {
-          startTone(1000, 100);
+          tone(soundPin, 1000, 100);
+          delay(120);
+          noTone(soundPin);
         } else if (!strcmp(t, "reset")) {
-          startTone(400, 300);
+          tone(soundPin, 400, 300);
+          delay(320);
+          noTone(soundPin);
         } else if (!strcmp(t, "joined")) {
+          // Szerver visszaigazolása: mostantól Player módban vagyunk
           joined = true;
           Serial.printf("JOINED ACK, id=%d\n", ESP_ID);
         }
+        // "welcome" érkezhet, de nincs rá szükségünk compile-time ID mellett
       }
       break;
     }
