@@ -43,18 +43,33 @@
   }
   #roles {
     font-size: 22px;
-    text-align: center;
     z-index: 10;
+    display: flex;
+    justify-content: center; /* players blokk középre */
+    align-items: center;
+    margin: 0 40px 8px 40px;
+    width: calc(100% - 80px);
+    position: relative; /* hint jobb szélre */
+  }
+  #roles .players {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
     gap: 16px;
-    margin-bottom: 8px;
+    text-align: center;
   }
-  #roles span {
+  #roles .players span {
     font-size:28px;
     font-weight:bold;
     line-height:1.4;
+    white-space:nowrap;
+  }
+  #roles .hint {
+    position: absolute;
+    right: 0;
+    font-size:20px;
+    color:#fff;
+    opacity:0.8;
     white-space:nowrap;
   }
   canvas {
@@ -140,19 +155,20 @@
            <span style="color:${colors[3]}">Felső</span>: <span style="color:white">${msg.scores[3]}</span> |
            <span style="color:${colors[4]}">Alsó</span>: <span style="color:white">${msg.scores[4]}</span>`;
 
-        // 🎨 Színes roles: név = paddle szín, státusz = fehér
+        // 🎨 Roles középen, hint jobb szélre
         if (msg.roles) {
           const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-          let html = "";
+          let playersHtml = "";
           for (let i=1;i<=4;i++) {
-            html += `<span>
+            playersHtml += `<span>
               <span style="color:${colors[i]}">${names[i]}</span>:
               <span style="color:white">${msg.roles[i]}</span>
             </span>`;
           }
-          html += `<span style="font-size:20px; margin-left:30px; color:#fff; opacity:0.8;">
-            Nyomd meg a gombot a belépéshez!
-          </span>`;
+          const html = `
+            <div class="players">${playersHtml}</div>
+            <div class="hint">Nyomd meg a gombot a belépéshez!</div>
+          `;
           document.getElementById("roles").innerHTML = html;
         }
       }
