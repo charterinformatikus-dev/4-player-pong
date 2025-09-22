@@ -23,7 +23,7 @@ bool wantJoin = false;
 const int deadzones[5] = {
   0,    // index 0 nincs használva
   180,  // 1: Bal
-  200,  // 2: Jobb 
+  400,  // 2: Jobb 
   150,  // 3: Felső szintúgy jó
   500   // 4: Alsó jó fa good
 };
