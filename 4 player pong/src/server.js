@@ -1,3 +1,6 @@
+// server_fixed_paddles.js
+// Javított irány-térképezés, dinamikus paddle/pálya méretezés és néhány hibajavítás
+
 const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
@@ -9,15 +12,23 @@ const wss = new WebSocket.Server({ server, path: "/4playerpong" });
 
 app.use(express.static(__dirname));
 
-// alap értékek
+// alap értékek (ezeket a display küldi update-kor)
 let FIELD_W = 600;
 let FIELD_H = 400;
 
-const PADDLE_H = 120;
-const PADDLE_W = 120;
-const PADDLE_THICKNESS = 20;
+// PADDLE méretek arányokban; a tényleges pixelméret FIELD_W/H alapján számolódik
+const PADDLE_H_RATIO = 0.30; // függőleges ütők magassága a pálya magasságához képest
+const PADDLE_W_RATIO = 0.18; // vízszintes ütők szélessége a pálya szélességéhez képest
+const PADDLE_THICK_RATIO = 0.035; // ütő vastagsága a kisebbik dimenzióhoz képest
 const PADDLE_OFFSET = 30;
 const BALL_R = 12;
+
+function computePaddles() {
+  const PADDLE_H = Math.max(80, Math.floor(FIELD_H * PADDLE_H_RATIO));
+  const PADDLE_W = Math.max(80, Math.floor(FIELD_W * PADDLE_W_RATIO));
+  const PADDLE_THICKNESS = Math.max(12, Math.floor(Math.min(FIELD_W, FIELD_H) * PADDLE_THICK_RATIO));
+  return { PADDLE_H, PADDLE_W, PADDLE_THICKNESS };
+}
 
 let players = {};
 let ball = {};
@@ -31,12 +42,15 @@ let lastInputTime = {1:0,2:0,3:0,4:0};
 function resetBall() {
   ball.x = FIELD_W/2;
   ball.y = FIELD_H/2;
-  ball.vx = Math.random() > 0.5 ? 7.5 : -7.5;
-  ball.vy = Math.random() > 0.5 ? 5 : -5;
+  // lassabb, stabilabb kezdősebesség; később növelhető
+  ball.vx = (Math.random() > 0.5 ? 1 : -1) * (6 + Math.random()*2);
+  ball.vy = (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random()*2);
   broadcastTo("esp", JSON.stringify({ type: "reset" }));
 }
 
 function resetGame() {
+  const { PADDLE_H, PADDLE_W } = computePaddles();
+
   players = {
     1: { y: FIELD_H/2 - PADDLE_H/2, dir: 0 },
     2: { y: FIELD_H/2 - PADDLE_H/2, dir: 0 },
@@ -50,12 +64,7 @@ resetGame();
 
 setInterval(() => {
   if (gamePaused) {
-    const state = { type: "state", players, ball, scores, roles: {
-      1: aiEnabled[1] ? "AI" : "Player",
-      2: aiEnabled[2] ? "AI" : "Player",
-      3: aiEnabled[3] ? "AI" : "Player",
-      4: aiEnabled[4] ? "AI" : "Player"
-    }};
+    const state = buildState();
     broadcastTo("display", JSON.stringify(state));
     return;
   }
@@ -64,32 +73,34 @@ setInterval(() => {
   for (let i=1;i<=4;i++) {
     if (aiEnabled[i]) {
       if (i === 1 || i === 2) {
-        let paddleCenter = players[i].y + PADDLE_H/2;
-        players[i].dir = (ball.y < paddleCenter) ? -1 : 1;
+        let paddleCenter = players[i].y + computePaddles().PADDLE_H/2;
+        players[i].dir = (ball.y < paddleCenter - 5) ? -1 : (ball.y > paddleCenter + 5 ? 1 : 0);
       }
       if (i === 3 || i === 4) {
-        let paddleCenter = players[i].x + PADDLE_W/2;
-        players[i].dir = (ball.x < paddleCenter) ? -1 : 1;
+        let paddleCenter = players[i].x + computePaddles().PADDLE_W/2;
+        players[i].dir = (ball.x < paddleCenter - 5) ? -1 : (ball.x > paddleCenter + 5 ? 1 : 0);
       }
     }
   }
 
-  // paddlek mozgatása
-  if (players[1]) players[1].y = Math.max(0, Math.min(FIELD_H - PADDLE_H, players[1].y + players[1].dir * 10));
-  if (players[2]) players[2].y = Math.max(0, Math.min(FIELD_H - PADDLE_H, players[2].y + players[2].dir * 10));
-  if (players[3]) players[3].x = Math.max(0, Math.min(FIELD_W - PADDLE_W, players[3].x + players[3].dir * 10));
-  if (players[4]) players[4].x = Math.max(0, Math.min(FIELD_W - PADDLE_W, players[4].x + players[4].dir * 10));
+  // paddlek mozgatása (sebesség pixelekben)
+  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
+  if (players[1]) players[1].y = Math.max(0, Math.min(FIELD_H - computePaddles().PADDLE_H, players[1].y + players[1].dir * moveSpeed));
+  if (players[2]) players[2].y = Math.max(0, Math.min(FIELD_H - computePaddles().PADDLE_H, players[2].y + players[2].dir * moveSpeed));
+  if (players[3]) players[3].x = Math.max(0, Math.min(FIELD_W - computePaddles().PADDLE_W, players[3].x + players[3].dir * moveSpeed));
+  if (players[4]) players[4].x = Math.max(0, Math.min(FIELD_W - computePaddles().PADDLE_W, players[4].x + players[4].dir * moveSpeed));
 
   // labda mozgatás
   ball.x += ball.vx;
   ball.y += ball.vy;
 
+  const { PADDLE_H, PADDLE_W, PADDLE_THICKNESS } = computePaddles();
   const leftPaddleX = PADDLE_OFFSET;
   const rightPaddleX = FIELD_W - PADDLE_OFFSET - PADDLE_THICKNESS;
   const topPaddleY = PADDLE_OFFSET;
   const bottomPaddleY = FIELD_H - PADDLE_OFFSET - PADDLE_THICKNESS;
 
-  // ütközések
+  // ütközések: egyszerűbb, robosztus feltételek
   if ((ball.x - BALL_R) <= (leftPaddleX + PADDLE_THICKNESS)
       && ball.y >= players[1].y
       && ball.y <= players[1].y + PADDLE_H) {
@@ -143,14 +154,26 @@ setInterval(() => {
     lastHit = null;
   }
 
-  const state = { type: "state", players, ball, scores, roles: {
-    1: aiEnabled[1] ? "AI" : "Player",
-    2: aiEnabled[2] ? "AI" : "Player",
-    3: aiEnabled[3] ? "AI" : "Player",
-    4: aiEnabled[4] ? "AI" : "Player"
-  }};
+  const state = buildState();
   broadcastTo("display", JSON.stringify(state));
 }, 1000/60);
+
+function buildState() {
+  const paddleInfo = computePaddles();
+  return {
+    type: "state",
+    players,
+    ball,
+    scores,
+    paddles: paddleInfo,
+    roles: {
+      1: aiEnabled[1] ? "AI" : "Player",
+      2: aiEnabled[2] ? "AI" : "Player",
+      3: aiEnabled[3] ? "AI" : "Player",
+      4: aiEnabled[4] ? "AI" : "Player"
+    }
+  };
+}
 
 function broadcastTo(role, msg) {
   wss.clients.forEach(c => {
@@ -190,24 +213,36 @@ wss.on("connection", (ws, req) => {
     ws.send(JSON.stringify({ type: "welcome", id: ws.id }));
   }
 
+  if (ws.role === "display") {
+    console.log("Display csatlakozott");
+  }
+
   ws.on("message", msg => {
     try {
       const data = JSON.parse(msg.toString());
 
       if (ws.role === "display" && data.type === "displaySize") {
-        FIELD_W = data.width; FIELD_H = data.height;
-        console.log(`Pálya: ${FIELD_W}x${FIELD_H}`);
+        // Update pálya méret és reset
+        FIELD_W = Number(data.width) || FIELD_W;
+        FIELD_H = Number(data.height) || FIELD_H;
+        console.log(`Pálya frissítve: ${FIELD_W}x${FIELD_H}`);
         resetGame();
         return;
       }
 
       if (ws.role === "esp" && ws.id) {
         if (data.type === "join") {
-          // Idempotens: többször is jöhet, mindig Player módba tesszük
           aiEnabled[ws.id] = false;
           players[ws.id].dir = 0; // megállítjuk az ütőt
           ws.send(JSON.stringify({ type: "joined", id: ws.id })); // ACK
           console.log(`Játékos ${ws.id} Player mód`);
+          return;
+        }
+
+        if (data.type === "return_to_ai") {
+          aiEnabled[ws.id] = true;
+          players[ws.id].dir = 0;
+          console.log(`Játékos ${ws.id} vissza AI-ra`);
           return;
         }
 
@@ -216,14 +251,15 @@ wss.on("connection", (ws, req) => {
           if (gamePaused) return;
 
           if (ws.id===1||ws.id===2) {
+            // függőleges játékosok: up/down
             if (data.dir==="up") players[ws.id].dir=-1;
             else if (data.dir==="down") players[ws.id].dir=1;
             else players[ws.id].dir=0;
           }
           if (ws.id===3||ws.id===4) {
-            // marad az általad használt hozzárendelés
-            if (data.dir==="left") players[ws.id].dir=1;
-            else if (data.dir==="right") players[ws.id].dir=-1;
+            // vízszintes játékosok: BAL = -1, JOBB = +1
+            if (data.dir==="left") players[ws.id].dir=-1;
+            else if (data.dir==="right") players[ws.id].dir=1;
             else players[ws.id].dir=0;
           }
         }
@@ -237,7 +273,7 @@ wss.on("connection", (ws, req) => {
     console.log(`Kapcsolat bontva: ${ws.role} ${ws.id||""}`);
     if (ws.role==="esp"&&ws.id) {
       players[ws.id].dir=0;
-      aiEnabled[ws.id]=true; // szerver restartnál is ez lesz az alap
+      aiEnabled[ws.id]=true;
     }
   });
 });

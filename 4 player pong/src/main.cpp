@@ -4,11 +4,8 @@
 #include <ArduinoJson.h>
 
 // ===== WIFI =====
-const char* ssid = "ESP_ROUTER";
-const char* password = "charter2019";
-
-// ===== FIX KLIENS ID (1..4) =====
-#define ESP_ID 4  // <- állítsd 1..4 közé minden eszközön
+const char* ssid = "Charter Informatika 2019_";
+const char* password = "charter1";
 
 WebSocketsClient webSocket;
 
@@ -22,51 +19,69 @@ String lastDir = "stop";
 bool joined = false;
 bool wantJoin = false;
 
-// ESP 1
-//#define DEADZONE_X 3750
-//#define DEADZONE_Y 3750
+// Deadzone (delta értékre, ADC 0..4095 skálán)
+#define DEADZONE 200
 
-// ESP 2
-//#define DEADZONE_X 3800
-//#define DEADZONE_Y 3750
-
-// ESP 3
-//#define DEADZONE_X 3875
-//#define DEADZONE_Y 3750
-
-// ESP 4
-#define DEADZONE_X 3750
-#define DEADZONE_Y 3750
+// Középértékek (fixen setup alatt számoljuk ki)
+int centerX = 2048;
+int centerY = 2048;
 
 // debug időzítés
 unsigned long lastDbg = 0;
 const unsigned long DBG_PERIOD_MS = 200;
 
-// joystick tartomány
-int obsMinX = 65535, obsMaxX = 0;
-int obsMinY = 65535, obsMaxY = 0;
-
 // küldés időzítő
 unsigned long lastSend = 0;
 const unsigned long SEND_INTERVAL = 33; // ~30Hz
 
-// nem-blokkoló hang vezérlés
+// stop figyelés
+unsigned long stopStart = 0;
+bool returnedToAI = false;
+const unsigned long STOP_TIMEOUT = 5000; // 5s
+
+// hang vezérlés
 bool toneActive = false;
 unsigned long toneEndTime = 0;
+
+// --- MAC → ID hozzárendelés ---
+int getPlayerIdFromMac(String mac) {
+  mac.toUpperCase();
+  if (mac == "90:E5:B1:8E:49:70") return 1; // bal
+  if (mac == "90:E5:B1:8E:C2:80") return 3; // felső
+  if (mac == "90:E5:B1:8E:CF:B0") return 2; // jobb
+  if (mac == "90:E5:B1:8D:C0:D2") return 4; // alsó
+  return 0; // ismeretlen
+}
+
+int playerId = 0;
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 
 int readFast(int pin) {
-  return analogRead(pin); // nincs átlagolás, nincs delay
+  return analogRead(pin);
 }
 
 void sendJoin() {
-  DynamicJsonDocument doc(32);
+  DynamicJsonDocument doc(64);
   doc["type"] = "join";
-  char buffer[32];
+  doc["id"] = playerId;
+  char buffer[64];
   serializeJson(doc, buffer, sizeof(buffer));
   webSocket.sendTXT(buffer);
-  Serial.println("JOIN elküldve");
+  Serial.printf("JOIN elküldve (id=%d)\n", playerId);
+}
+
+void sendReturnToAI() {
+  DynamicJsonDocument doc(64);
+  doc["type"] = "return_to_ai";
+  doc["id"] = playerId;
+  char buffer[64];
+  serializeJson(doc, buffer, sizeof(buffer));
+  webSocket.sendTXT(buffer);
+  
+  joined = false;
+  wantJoin = false;
+  Serial.printf("⚠ return_to_ai küldve (id=%d)\n", playerId);
 }
 
 void startTone(int freq, int dur) {
@@ -84,41 +99,54 @@ void handleTone() {
 
 void setup() {
   Serial.begin(115200);
+  analogReadResolution(12);   // ADC 12 bit (0..4095)
 
   pinMode(soundPin, OUTPUT);
   pinMode(joySwitchPin, INPUT_PULLUP);
-  tone(soundPin, 1500, 1000);
-  tone(soundPin, 750, 500);
+  tone(soundPin, 1500, 100);
+  delay(120);
+  tone(soundPin, 800, 120);
 
+  // WiFi csatlakozás
   WiFi.begin(ssid, password);
+  Serial.print("WiFi: csatlakozás");
   while (WiFi.status() != WL_CONNECTED) {
     delay(200);
     Serial.print(".");
   }
   Serial.println("\nWiFi ok");
 
-  String path = String("/4playerpong?type=esp&id=") + String(ESP_ID);
-  webSocket.begin("raspberrypi.local", 8080, path.c_str());
+  // MAC cím
+  String mac = WiFi.macAddress();
+  Serial.print("Eszköz MAC: ");
+  Serial.println(mac);
+
+  // ID hozzárendelés MAC alapján
+  playerId = getPlayerIdFromMac(mac);
+  if (playerId == 0) {
+    Serial.println("⚠ Ismeretlen MAC! Nincs ID hozzárendelve!");
+  } else {
+    Serial.printf("Ez az eszköz a(z) %d-es játékos\n", playerId);
+  }
+
+  // WebSocket
+  String path = String("/4playerpong?type=esp&id=") + String(playerId);
+  webSocket.begin("192.168.88.129", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(3000);
 
-  // Kalibrálás
-  Serial.println("Kalibrálás (joystick közép)...");
-  long sx = 0, sy = 0;
-  const int N = 20;
-  for (int i = 0; i < N; i++) {
+  // Joystick kalibráció (közép)
+  long sx=0, sy=0;
+  const int N=30;
+  Serial.println("Kalibrálás, ne mozgasd a joystickot...");
+  for (int i=0; i<N; i++) {
     sx += readFast(pinX);
     sy += readFast(pinY);
+    delay(10);
   }
-  int cx = sx / N;
-  int cy = sy / N;
-
-  obsMinX = cx - 512;
-  obsMaxX = cx + 512;
-  obsMinY = cy - 512;
-  obsMaxY = cy + 512;
-
-  Serial.printf("Közép: X:%d Y:%d | ESP_ID=%d\n", cx, cy, ESP_ID);
+  centerX = sx / N;
+  centerY = sy / N;
+  Serial.printf("Fix közép: X:%d Y:%d (átlag %d minta)\n", centerX, centerY, N);
 }
 
 void loop() {
@@ -129,21 +157,12 @@ void loop() {
   if (digitalRead(joySwitchPin) == LOW && !joined) {
     wantJoin = true;
     sendJoin();
-    delay(200); // csak debounce miatt
+    delay(200); // debounce
   }
 
-  if (joined) {
+  if (joined && playerId != 0) {
     int xVal = readFast(pinX);
     int yVal = readFast(pinY);
-
-    // frissítjük a min/max tartományt
-    if (xVal < obsMinX) obsMinX = xVal;
-    if (xVal > obsMaxX) obsMaxX = xVal;
-    if (yVal < obsMinY) obsMinY = yVal;
-    if (yVal > obsMaxY) obsMaxY = yVal;
-
-    int centerX = (obsMinX + obsMaxX) / 2;
-    int centerY = (obsMinY + obsMaxY) / 2;
 
     int deltaX = xVal - centerX;
     int deltaY = yVal - centerY;
@@ -151,28 +170,50 @@ void loop() {
     int absDY = abs(deltaY);
 
     String dir = "stop";
-    if (absDY > DEADZONE_Y && absDY >= absDX) {
-      dir = (deltaY < 0) ? "up" : "down";
-    } else if (absDX > DEADZONE_X) {
-      dir = (deltaX < 0) ? "left" : "right";
+
+    // --- Paddle-specifikus irány logika ---
+    if (playerId == 1 || playerId == 2) {
+      // BAL és JOBB → csak Y (up/down)
+      if (absDY > DEADZONE) {
+        dir = (deltaY < 0) ? "up" : "down";
+      }
+    } 
+    else if (playerId == 3 || playerId == 4) {
+      // FELSŐ és ALSÓ → csak X (left/right)
+      if (absDX > DEADZONE) {
+        dir = (deltaX < 0) ? "left" : "right";
+      }
     }
 
     unsigned long now = millis();
+
+    // stop figyelés AI visszaadásra
+    if (dir == "stop") {
+      if (stopStart == 0) stopStart = now;
+      if (!returnedToAI && (now - stopStart >= STOP_TIMEOUT)) {
+        sendReturnToAI();
+        returnedToAI = true;
+      }
+    } else {
+      stopStart = 0;
+      returnedToAI = false;
+    }
+
     if (dir != lastDir || now - lastSend >= SEND_INTERVAL) {
-      DynamicJsonDocument doc(32);
+      DynamicJsonDocument doc(64);
       doc["dir"] = dir;
-      char buffer[32];
+      char buffer[64];
       serializeJson(doc, buffer, sizeof(buffer));
       webSocket.sendTXT(buffer);
       lastDir = dir;
       lastSend = now;
     }
 
-    // --- DEBUG: joystick értékek Serial Monitorra ---
+    // Debug
     unsigned long nowDbg = millis();
     if (nowDbg - lastDbg >= DBG_PERIOD_MS) {
-      Serial.printf("RAW X:%4d Y:%4d | centerX:%4d centerY:%4d | dX:%4d dY:%4d | joined:%d\n",
-                    xVal, yVal, centerX, centerY, deltaX, deltaY, (int)joined);
+      Serial.printf("ID:%d | RAW X:%4d Y:%4d | dX:%4d dY:%4d | out:%s\n",
+        playerId, xVal, yVal, deltaX, deltaY, dir.c_str());
       lastDbg = nowDbg;
     }
   }
@@ -192,15 +233,16 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
 
     case WStype_TEXT: {
       DynamicJsonDocument doc(128);
-      if (!deserializeJson(doc, payload, length)) {
+      DeserializationError err = deserializeJson(doc, payload, length);
+      if (!err) {
         const char* t = doc["type"] | "";
-        if (!strcmp(t, "hit")) {
+        if (strcmp(t, "hit") == 0) {
           startTone(1000, 100);
-        } else if (!strcmp(t, "reset")) {
+        } else if (strcmp(t, "reset") == 0) {
           startTone(400, 300);
-        } else if (!strcmp(t, "joined")) {
+        } else if (strcmp(t, "joined") == 0) {
           joined = true;
-          Serial.printf("JOINED ACK, id=%d\n", ESP_ID);
+          Serial.printf("JOINED ACK, id=%d\n", playerId);
         }
       }
       break;
