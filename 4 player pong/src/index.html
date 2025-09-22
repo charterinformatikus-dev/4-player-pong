@@ -98,7 +98,7 @@
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
-  let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
+  let wsUrl = "ws://192.168.88.129:8080/4playerpong?type=display";
   let socket = null;
   let gameState = null;
   let winnerMessage = null;
@@ -212,16 +212,42 @@
       ctx.fillText("Várakozás a szerverre...", canvas.width/2 - 100, canvas.height/2);
     }
 
-    // paddlek kirajzolása
+    // paddlek kirajzolása + AI felirat
     ctx.fillStyle = colors[1];
     ctx.fillRect(30, p1y, PADDLE_THICK, PADDLE_H);
+    if (gameState?.roles?.[1] === "AI") {
+      ctx.fillStyle = "white";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("AI", 30 + PADDLE_THICK + 5, p1y + PADDLE_H/2);
+    }
+
     ctx.fillStyle = colors[2];
     ctx.fillRect(canvas.width - 30 - PADDLE_THICK, p2y, PADDLE_THICK, PADDLE_H);
+    if (gameState?.roles?.[2] === "AI") {
+      ctx.fillStyle = "white";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("AI", canvas.width - 30 - PADDLE_THICK - 5, p2y + PADDLE_H/2);
+    }
+
     ctx.fillStyle = colors[3];
     ctx.fillRect(p3x, 30, PADDLE_W, PADDLE_THICK);
+    if (gameState?.roles?.[3] === "AI") {
+      ctx.fillStyle = "white";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("AI", p3x + PADDLE_W/2, 30 - 8);
+    }
+
     ctx.fillStyle = colors[4];
     ctx.fillRect(p4x, canvas.height - 30 - PADDLE_THICK, PADDLE_W, PADDLE_THICK);
-
+    if (gameState?.roles?.[4] === "AI") {
+      ctx.fillStyle = "white";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("AI", p4x + PADDLE_W/2, canvas.height - 30 - PADDLE_THICK - 8);
+    }
     // labda
     ctx.fillStyle = "white";
     ctx.beginPath();

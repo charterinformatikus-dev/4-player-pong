@@ -17,17 +17,20 @@ let FIELD_W = 600;
 let FIELD_H = 400;
 
 // PADDLE méretek arányokban; a tényleges pixelméret FIELD_W/H alapján számolódik
-const PADDLE_H_RATIO = 0.30; // függőleges ütők magassága a pálya magasságához képest
-const PADDLE_W_RATIO = 0.18; // vízszintes ütők szélessége a pálya szélességéhez képest
-const PADDLE_THICK_RATIO = 0.035; // ütő vastagsága a kisebbik dimenzióhoz képest
+const PADDLE_SIZE_RATIO = 0.20; // minden ütő mérete a pálya kisebbik oldalához képest
+const PADDLE_THICK_RATIO = 0.035;
 const PADDLE_OFFSET = 30;
 const BALL_R = 12;
 
 function computePaddles() {
-  const PADDLE_H = Math.max(80, Math.floor(FIELD_H * PADDLE_H_RATIO));
-  const PADDLE_W = Math.max(80, Math.floor(FIELD_W * PADDLE_W_RATIO));
-  const PADDLE_THICKNESS = Math.max(12, Math.floor(Math.min(FIELD_W, FIELD_H) * PADDLE_THICK_RATIO));
-  return { PADDLE_H, PADDLE_W, PADDLE_THICKNESS };
+  const base = Math.min(FIELD_W, FIELD_H);
+  const PADDLE_SIZE = Math.max(80, Math.floor(base * PADDLE_SIZE_RATIO));
+  const PADDLE_THICKNESS = Math.max(12, Math.floor(base * PADDLE_THICK_RATIO));
+  return { 
+    PADDLE_H: PADDLE_SIZE, 
+    PADDLE_W: PADDLE_SIZE, 
+    PADDLE_THICKNESS 
+  };
 }
 
 let players = {};
@@ -43,8 +46,8 @@ function resetBall() {
   ball.x = FIELD_W/2;
   ball.y = FIELD_H/2;
   // lassabb, stabilabb kezdősebesség; később növelhető
-  ball.vx = (Math.random() > 0.5 ? 1 : -1) * (6 + Math.random()*2);
-  ball.vy = (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random()*2);
+  ball.vx = (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random()*2);
+  ball.vy = (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random()*2);
   broadcastTo("esp", JSON.stringify({ type: "reset" }));
 }
 
@@ -72,19 +75,23 @@ setInterval(() => {
   // AI mozgatás
   for (let i=1;i<=4;i++) {
     if (aiEnabled[i]) {
+      const AI_DEADZONE = 20;
+
       if (i === 1 || i === 2) {
         let paddleCenter = players[i].y + computePaddles().PADDLE_H/2;
-        players[i].dir = (ball.y < paddleCenter - 5) ? -1 : (ball.y > paddleCenter + 5 ? 1 : 0);
+        players[i].dir = (ball.y < paddleCenter - AI_DEADZONE) ? -1 
+                      : (ball.y > paddleCenter + AI_DEADZONE) ? 1 : 0;
       }
       if (i === 3 || i === 4) {
         let paddleCenter = players[i].x + computePaddles().PADDLE_W/2;
-        players[i].dir = (ball.x < paddleCenter - 5) ? -1 : (ball.x > paddleCenter + 5 ? 1 : 0);
+        players[i].dir = (ball.x < paddleCenter - AI_DEADZONE) ? -1 
+                      : (ball.x > paddleCenter + AI_DEADZONE) ? 1 : 0;
       }
     }
   }
 
   // paddlek mozgatása (sebesség pixelekben)
-  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
+  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.04));
   if (players[1]) players[1].y = Math.max(0, Math.min(FIELD_H - computePaddles().PADDLE_H, players[1].y + players[1].dir * moveSpeed));
   if (players[2]) players[2].y = Math.max(0, Math.min(FIELD_H - computePaddles().PADDLE_H, players[2].y + players[2].dir * moveSpeed));
   if (players[3]) players[3].x = Math.max(0, Math.min(FIELD_W - computePaddles().PADDLE_W, players[3].x + players[3].dir * moveSpeed));

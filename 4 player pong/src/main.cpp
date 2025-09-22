@@ -20,7 +20,13 @@ bool joined = false;
 bool wantJoin = false;
 
 // Deadzone (delta értékre, ADC 0..4095 skálán)
-#define DEADZONE 200
+const int deadzones[5] = {
+  0,    // index 0 nincs használva
+  180,  // 1: Bal
+  200,  // 2: Jobb 
+  150,  // 3: Felső szintúgy jó
+  500   // 4: Alsó jó fa good
+};
 
 // Középértékek (fixen setup alatt számoljuk ki)
 int centerX = 2048;
@@ -37,7 +43,7 @@ const unsigned long SEND_INTERVAL = 33; // ~30Hz
 // stop figyelés
 unsigned long stopStart = 0;
 bool returnedToAI = false;
-const unsigned long STOP_TIMEOUT = 5000; // 5s
+const unsigned long STOP_TIMEOUT = 8000;
 
 // hang vezérlés
 bool toneActive = false;
@@ -78,7 +84,7 @@ void sendReturnToAI() {
   char buffer[64];
   serializeJson(doc, buffer, sizeof(buffer));
   webSocket.sendTXT(buffer);
-  
+
   joined = false;
   wantJoin = false;
   Serial.printf("⚠ return_to_ai küldve (id=%d)\n", playerId);
@@ -171,17 +177,19 @@ void loop() {
 
     String dir = "stop";
 
+    int dz = deadzones[playerId];
+
     // --- Paddle-specifikus irány logika ---
     if (playerId == 1 || playerId == 2) {
-      // BAL és JOBB → csak Y (up/down)
-      if (absDY > DEADZONE) {
+      // BAL / JOBB → Y irány
+      if (absDY > dz || yVal <= 50 || yVal >= 4045) {
         dir = (deltaY < 0) ? "up" : "down";
       }
-    } 
+    }
     else if (playerId == 3 || playerId == 4) {
-      // FELSŐ és ALSÓ → csak X (left/right)
-      if (absDX > DEADZONE) {
-        dir = (deltaX < 0) ? "left" : "right";
+      // FELSŐ / ALSÓ → X irány
+      if (absDX > dz || xVal <= 50 || xVal >= 4045) {
+        dir = (deltaX < 0) ? "right" : "left";
       }
     }
 
