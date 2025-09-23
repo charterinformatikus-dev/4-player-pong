@@ -1,4 +1,4 @@
-// server_fixed_paddles.js
+// server.js
 // 4-játékos Pong – paddlek beljebb + AI deadzone + paddle velocity transfer + falpattanás a saroknál
 // javítva: paddlek nem mennek be az L alakú sarkok alá (cornerLimit figyelembevétel)
 
@@ -125,7 +125,7 @@ setInterval(() => {
 
   const { PADDLE_H, PADDLE_W, PADDLE_THICKNESS } = computePaddles();
   const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
-const cornerLimit = 120;
+  const cornerLimit = 120;
 
   for (let i=1;i<=4;i++) {
     if (aiEnabled[i]) {
@@ -135,7 +135,7 @@ const cornerLimit = 120;
         aiDecisionDelay[i] = Date.now() + (200 + Math.random()*200); // 200–400ms
 
         // kis esély hogy rosszat dönt (hibázás)
-        if (Math.random() < 0.08) {  // 8% hiba
+        if (Math.random() < 0.15) {  // 15% hiba
           players[i].dir = (Math.random() < 0.5) ? -1 : 1;
           continue;
         }
@@ -190,6 +190,9 @@ const cornerLimit = 120;
   }
 
   // labda mozgatás
+  ball.prevX = ball.x;
+  ball.prevY = ball.y;
+
   ball.x += ball.vx;
   ball.y += ball.vy;
 
@@ -200,56 +203,62 @@ const cornerLimit = 120;
   // a cornerSize mostantól legyen a cornerLimit, hogy a fal és a paddlek konzisztensen kezeljék a sarkokat
   const cornerSize = cornerLimit;
 
-  // ütközések paddlékkel
-  if ((ball.x - BALL_R) <= (leftPaddleX + PADDLE_THICKNESS)
-      && (ball.y + BALL_R) >= players[1].y
-      && (ball.y - BALL_R) <= players[1].y + PADDLE_H) {
-    ball.x = leftPaddleX + PADDLE_THICKNESS + BALL_R;
-    ball.vx = Math.abs(ball.vx);
-    if (players[1].vy !== 0) {
-      ball.vy += players[1].vy * 0.5;
-      clampBallSpeed();
-    }
-    sendToId(1, JSON.stringify({ type: "hit" }));
-    lastHit = 1;
+  // --- ütközések paddlékkel pontosítva (prevX/prevY-vel) ---
+if ((ball.x - BALL_R) <= (leftPaddleX + PADDLE_THICKNESS)
+    && (ball.prevX - BALL_R) > (leftPaddleX + PADDLE_THICKNESS) // előző frame még kívül
+    && (ball.y + BALL_R) >= players[1].y
+    && (ball.y - BALL_R) <= players[1].y + PADDLE_H) {
+  ball.x = leftPaddleX + PADDLE_THICKNESS + BALL_R;
+  ball.vx = Math.abs(ball.vx);
+  if (players[1].vy !== 0) {
+    ball.vy += players[1].vy * 0.5;
+    clampBallSpeed();
   }
-  if ((ball.x + BALL_R) >= rightPaddleX
-      && (ball.y + BALL_R) >= players[2].y
-      && (ball.y - BALL_R) <= players[2].y + PADDLE_H) {
-    ball.x = rightPaddleX - BALL_R;
-    ball.vx = -Math.abs(ball.vx);
-    if (players[2].vy !== 0) {
-      ball.vy += players[2].vy * 0.5;
-      clampBallSpeed();
-    }
-    sendToId(2, JSON.stringify({ type: "hit" }));
-    lastHit = 2;
-  }
-  if ((ball.y - BALL_R) <= (topPaddleY + PADDLE_THICKNESS)
-      && (ball.x + BALL_R) >= players[3].x
-      && (ball.x - BALL_R) <= players[3].x + PADDLE_W) {
-    ball.y = topPaddleY + PADDLE_THICKNESS + BALL_R;
-    ball.vy = Math.abs(ball.vy);
-    if (players[3].vx !== 0) {
-      ball.vx += players[3].vx * 0.5;
-      clampBallSpeed();
-    }
-    sendToId(3, JSON.stringify({ type: "hit" }));
-    lastHit = 3;
-  }
-  if ((ball.y + BALL_R) >= bottomPaddleY
-      && (ball.x + BALL_R) >= players[4].x
-      && (ball.x - BALL_R) <= players[4].x + PADDLE_W) {
-    ball.y = bottomPaddleY - BALL_R;
-    ball.vy = -Math.abs(ball.vy);
-    if (players[4].vx !== 0) {
-      ball.vx += players[4].vx * 0.5;
-      clampBallSpeed();
-    }
-    sendToId(4, JSON.stringify({ type: "hit" }));
-    lastHit = 4;
-  }
+  sendToId(1, JSON.stringify({ type: "hit" }));
+  lastHit = 1;
+}
 
+if ((ball.x + BALL_R) >= rightPaddleX
+    && (ball.prevX + BALL_R) < rightPaddleX // előző frame még kívül
+    && (ball.y + BALL_R) >= players[2].y
+    && (ball.y - BALL_R) <= players[2].y + PADDLE_H) {
+  ball.x = rightPaddleX - BALL_R;
+  ball.vx = -Math.abs(ball.vx);
+  if (players[2].vy !== 0) {
+    ball.vy += players[2].vy * 0.5;
+    clampBallSpeed();
+  }
+  sendToId(2, JSON.stringify({ type: "hit" }));
+  lastHit = 2;
+}
+
+if ((ball.y - BALL_R) <= (topPaddleY + PADDLE_THICKNESS)
+    && (ball.prevY - BALL_R) > (topPaddleY + PADDLE_THICKNESS) // előző frame még felette
+    && (ball.x + BALL_R) >= players[3].x
+    && (ball.x - BALL_R) <= players[3].x + PADDLE_W) {
+  ball.y = topPaddleY + PADDLE_THICKNESS + BALL_R;
+  ball.vy = Math.abs(ball.vy);
+  if (players[3].vx !== 0) {
+    ball.vx += players[3].vx * 0.5;
+    clampBallSpeed();
+  }
+  sendToId(3, JSON.stringify({ type: "hit" }));
+  lastHit = 3;
+}
+
+if ((ball.y + BALL_R) >= bottomPaddleY
+    && (ball.prevY + BALL_R) < bottomPaddleY // előző frame még fölötte
+    && (ball.x + BALL_R) >= players[4].x
+    && (ball.x - BALL_R) <= players[4].x + PADDLE_W) {
+  ball.y = bottomPaddleY - BALL_R;
+  ball.vy = -Math.abs(ball.vy);
+  if (players[4].vx !== 0) {
+    ball.vx += players[4].vx * 0.5;
+    clampBallSpeed();
+  }
+  sendToId(4, JSON.stringify({ type: "hit" }));
+  lastHit = 4;
+}
   // sarokfal pattanás (most cornerSize-ot használva)
   if (ball.x - BALL_R <= 0 && (ball.y < FIELD_H - cornerSize && ball.y > cornerSize)) {
     // gól — bal oldali kapu

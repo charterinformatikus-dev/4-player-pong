@@ -101,7 +101,19 @@ function tryConnect() {
     if (msg.type === "state") {
       gameState = msg;
     }
+
+    if (msg.type === "hit") {
+      // amikor paddle eltalálja
+      sfxPaddleHit();
+    }
+
+    if (msg.type === "reset") {
+      // amikor új labda indul
+      sfxStart();
+    }
+
     if (msg.type === "winner") {
+      sfxScore();
       const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
       winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
       if (winnerTimeout) clearTimeout(winnerTimeout);
@@ -111,14 +123,72 @@ function tryConnect() {
 }
 tryConnect();
 
+let scoreAnimations = {1:0,2:0,3:0,4:0}; // anim progresszió
+
+socket.onmessage = (ev) => {
+  const msg = JSON.parse(ev.data);
+
+  if (msg.type === "state") {
+    if (gameState && msg.scores) {
+      for (let i=1;i<=4;i++) {
+        if (msg.scores[i] !== gameState.scores[i]) {
+          scoreAnimations[i] = 1.0; // indíts animációt
+        }
+      }
+    }
+    gameState = msg;
+  }
+
+  if (msg.type === "hit") sfxPaddleHit();
+  if (msg.type === "reset") sfxStart();
+  if (msg.type === "winner") {
+    sfxScore();
+    const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
+    winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
+    if (winnerTimeout) clearTimeout(winnerTimeout);
+    winnerTimeout = setTimeout(() => { winnerMessage = null; }, 3000);
+  }
+};
+
+function drawScores(GOAL_MARGIN) {
+  if (!gameState?.scores) return;
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+
+  for (let i=1;i<=4;i++) {
+    let scale = 1;
+    if (scoreAnimations[i] > 0) {
+      scale = 1 + 0.5 * scoreAnimations[i]; // max +50%
+      scoreAnimations[i] -= 0.05; // lassan csökken
+      if (scoreAnimations[i] < 0) scoreAnimations[i] = 0;
+    }
+
+    let x, y;
+    if (i===1) { x = GOAL_MARGIN - 20; y = canvas.height/2 + 10; }
+    if (i===2) { x = canvas.width - GOAL_MARGIN + 20; y = canvas.height/2 + 10; }
+    if (i===3) { x = canvas.width/2; y = GOAL_MARGIN - 10; }
+    if (i===4) { x = canvas.width/2; y = canvas.height - GOAL_MARGIN + 35; }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.font = "28px bold sans-serif";
+    ctx.fillText(gameState.scores[i] ?? 0, 0, 0);
+    ctx.restore();
+  }
+}
+
+
+
 function draw() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   const PADDLE_H = gameState?.paddles?.PADDLE_H ?? Math.floor(canvas.height * 0.30);
   const PADDLE_W = gameState?.paddles?.PADDLE_W ?? Math.floor(canvas.width * 0.18);
   const PADDLE_THICK = gameState?.paddles?.PADDLE_THICKNESS ?? Math.floor(Math.min(canvas.width, canvas.height) * 0.035);
 
-  const GOAL_MARGIN = 50; // ennyivel beljebb tesszük a paddle-öket
+  const GOAL_MARGIN = 50;
 
   let p1y = gameState?.players?.[1]?.y ?? (canvas.height/2 - PADDLE_H/2);
   let p2y = gameState?.players?.[2]?.y ?? (canvas.height/2 - PADDLE_H/2);
@@ -223,17 +293,69 @@ function draw() {
     ctx.fillText(gameState.scores[2] ?? 0, canvas.width - GOAL_MARGIN + 20, canvas.height/2 + 10);
   }
 
+  drawScores(GOAL_MARGIN);
+
   if (winnerMessage) {
     ctx.fillStyle = "yellow";
     ctx.font = "36px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(winnerMessage, canvas.width/2, canvas.height/2);
   }
+
   requestAnimationFrame(draw);
 }
 draw();
 
 function updateWSState(s){ document.getElementById('ws-state').textContent = s; }
+</script>
+<!-- --- HANGOK WebAudio API-val --- -->
+<script>
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// általános beep generátor
+function playBeep(freq=440, duration=0.1, type="square"){
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+// konkrét pong hangok
+function sfxPaddleHit(){ playBeep(900,0.08,"square"); }
+function sfxWallHit(){ playBeep(1400,0.1,"sine"); }
+function sfxScore(){
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+  osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.5);
+  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.5);
+}
+function sfxStart(){
+  [880,1175,1480].forEach((f,i)=>{
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(f, audioCtx.currentTime + i*0.12);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i*0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i*0.22);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + i*0.12);
+    osc.stop(audioCtx.currentTime + i*0.22);
+  });
+}
 </script>
 </body>
 </html>
