@@ -325,15 +325,15 @@ if (ball.y + BALL_R >= bottomPaddleY &&
       }
     }
 
-    if (ball.x < -BALL_R) {         // bal kapu
-      scores[1] = (scores[1] || 0) - 1;
-    } else if (ball.x > FIELD_W + BALL_R) { // jobb kapu
-      scores[2] = (scores[2] || 0) - 1;
-    } else if (ball.y < -BALL_R) {  // felső kapu
-      scores[3] = (scores[3] || 0) - 1;
-    } else if (ball.y > FIELD_H + BALL_R) { // alsó kapu
-      scores[4] = (scores[4] || 0) - 1;
-    }
+  if (ball.x < -BALL_R) {         // bal kapu
+    scores[1] = Math.max(0, (scores[1] || 0) - 1);
+  } else if (ball.x > FIELD_W + BALL_R) { // jobb kapu
+    scores[2] = Math.max(0, (scores[2] || 0) - 1);
+  } else if (ball.y < -BALL_R) {  // felső kapu
+    scores[3] = Math.max(0, (scores[3] || 0) - 1);
+  } else if (ball.y > FIELD_H + BALL_R) { // alsó kapu
+    scores[4] = Math.max(0, (scores[4] || 0) - 1);
+  }
 
     resetBall();
     lastHit = null;

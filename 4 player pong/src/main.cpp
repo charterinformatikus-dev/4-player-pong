@@ -22,7 +22,7 @@ bool wantJoin = false;
 // Deadzone (delta értékre, ADC 0..4095 skálán)
 const int deadzones[5] = {
   0,    // index 0 nincs használva
-  180,  // 1: Bal
+  200,  // 1: Bal
   400,  // 2: Jobb 
   150,  // 3: Felső szintúgy jó
   500   // 4: Alsó jó fa good
