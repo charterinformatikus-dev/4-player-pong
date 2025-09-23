@@ -1,5 +1,6 @@
 // server_fixed_paddles.js
-// 4-játékos Pong – egységes paddle méret + AI deadzone + paddle velocity transfer + reset if paddle idle
+// 4-játékos Pong – paddlek beljebb + AI deadzone + paddle velocity transfer + falpattanás a saroknál
+// javítva: paddlek nem mennek be az L alakú sarkok alá (cornerLimit figyelembevétel)
 
 const express = require("express");
 const http = require("http");
@@ -12,16 +13,16 @@ const wss = new WebSocket.Server({ server, path: "/4playerpong" });
 
 app.use(express.static(__dirname));
 
-// alap értékek (ezeket a display küldi update-kor)
+// alap értékek
 let FIELD_W = 600;
 let FIELD_H = 400;
 
 // PADDLE beállítások
-const PADDLE_SIZE_RATIO = 0.20;   // egységes méret
+const PADDLE_SIZE_RATIO = 0.20;
 const PADDLE_THICK_RATIO = 0.035;
 const PADDLE_OFFSET = 30;
-const BALL_R = 12;
-const AI_DEADZONE = 20;           // AI pufferméret
+const BALL_R = 16;
+const AI_DEADZONE = 20;
 const MAX_BALL_SPEED = 18;
 
 function computePaddles() {
@@ -76,7 +77,11 @@ setInterval(() => {
     return;
   }
 
-  const { PADDLE_H, PADDLE_W } = computePaddles();
+  const { PADDLE_H, PADDLE_W, PADDLE_THICKNESS } = computePaddles();
+  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
+
+  // corner limit: ne menjen be a paddlek sarkok alá (figyelembe vesszük a paddle vastagságát is)
+  const cornerLimit =  120;
 
   // AI mozgatás
   for (let i=1;i<=4;i++) {
@@ -94,91 +99,111 @@ setInterval(() => {
     }
   }
 
-  // paddlek mozgatása
-  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
+  // paddlek mozgatása (keret közti tartományban, de most cornerLimit-tel)
   if (players[1]) {
     players[1].vy = players[1].dir * moveSpeed;
-    players[1].y = Math.max(0, Math.min(FIELD_H - PADDLE_H, players[1].y + players[1].vy));
+    // vert paddlek y korlátai: top = cornerLimit, bottom = FIELD_H - cornerLimit - PADDLE_H
+    players[1].y = Math.max(cornerLimit, Math.min(FIELD_H - cornerLimit - PADDLE_H, players[1].y + players[1].vy));
   }
   if (players[2]) {
     players[2].vy = players[2].dir * moveSpeed;
-    players[2].y = Math.max(0, Math.min(FIELD_H - PADDLE_H, players[2].y + players[2].vy));
+    players[2].y = Math.max(cornerLimit, Math.min(FIELD_H - cornerLimit - PADDLE_H, players[2].y + players[2].vy));
   }
   if (players[3]) {
     players[3].vx = players[3].dir * moveSpeed;
-    players[3].x = Math.max(0, Math.min(FIELD_W - PADDLE_W, players[3].x + players[3].vx));
+    // horiz paddlek x korlátai: left = cornerLimit, right = FIELD_W - cornerLimit - PADDLE_W
+    players[3].x = Math.max(cornerLimit, Math.min(FIELD_W - cornerLimit - PADDLE_W, players[3].x + players[3].vx));
   }
   if (players[4]) {
     players[4].vx = players[4].dir * moveSpeed;
-    players[4].x = Math.max(0, Math.min(FIELD_W - PADDLE_W, players[4].x + players[4].vx));
+    players[4].x = Math.max(cornerLimit, Math.min(FIELD_W - cornerLimit - PADDLE_W, players[4].x + players[4].vx));
   }
 
   // labda mozgatás
   ball.x += ball.vx;
   ball.y += ball.vy;
 
-  const { PADDLE_THICKNESS } = computePaddles();
   const leftPaddleX = PADDLE_OFFSET;
   const rightPaddleX = FIELD_W - PADDLE_OFFSET - PADDLE_THICKNESS;
   const topPaddleY = PADDLE_OFFSET;
   const bottomPaddleY = FIELD_H - PADDLE_OFFSET - PADDLE_THICKNESS;
+  // a cornerSize mostantól legyen a cornerLimit, hogy a fal és a paddlek konzisztensen kezeljék a sarkokat
+  const cornerSize = cornerLimit;
 
-  // ütközések
+  // ütközések paddlékkel
   if ((ball.x - BALL_R) <= (leftPaddleX + PADDLE_THICKNESS)
-      && ball.y >= players[1].y
-      && ball.y <= players[1].y + PADDLE_H) {
-    ball.vx = Math.abs(ball.vx);
+      && (ball.y + BALL_R) >= players[1].y
+      && (ball.y - BALL_R) <= players[1].y + PADDLE_H) {
     ball.x = leftPaddleX + PADDLE_THICKNESS + BALL_R;
+    ball.vx = Math.abs(ball.vx);
     if (players[1].vy !== 0) {
       ball.vy += players[1].vy * 0.5;
       clampBallSpeed();
-    } else {
-      resetBallVelocity();
     }
     sendToId(1, JSON.stringify({ type: "hit" }));
     lastHit = 1;
   }
   if ((ball.x + BALL_R) >= rightPaddleX
-      && ball.y >= players[2].y
-      && ball.y <= players[2].y + PADDLE_H) {
-    ball.vx = -Math.abs(ball.vx);
+      && (ball.y + BALL_R) >= players[2].y
+      && (ball.y - BALL_R) <= players[2].y + PADDLE_H) {
     ball.x = rightPaddleX - BALL_R;
+    ball.vx = -Math.abs(ball.vx);
     if (players[2].vy !== 0) {
       ball.vy += players[2].vy * 0.5;
       clampBallSpeed();
-    } else {
-      resetBallVelocity();
     }
     sendToId(2, JSON.stringify({ type: "hit" }));
     lastHit = 2;
   }
   if ((ball.y - BALL_R) <= (topPaddleY + PADDLE_THICKNESS)
-      && ball.x >= players[3].x
-      && ball.x <= players[3].x + PADDLE_W) {
-    ball.vy = Math.abs(ball.vy);
+      && (ball.x + BALL_R) >= players[3].x
+      && (ball.x - BALL_R) <= players[3].x + PADDLE_W) {
     ball.y = topPaddleY + PADDLE_THICKNESS + BALL_R;
+    ball.vy = Math.abs(ball.vy);
     if (players[3].vx !== 0) {
       ball.vx += players[3].vx * 0.5;
       clampBallSpeed();
-    } else {
-      resetBallVelocity();
     }
     sendToId(3, JSON.stringify({ type: "hit" }));
     lastHit = 3;
   }
   if ((ball.y + BALL_R) >= bottomPaddleY
-      && ball.x >= players[4].x
-      && ball.x <= players[4].x + PADDLE_W) {
-    ball.vy = -Math.abs(ball.vy);
+      && (ball.x + BALL_R) >= players[4].x
+      && (ball.x - BALL_R) <= players[4].x + PADDLE_W) {
     ball.y = bottomPaddleY - BALL_R;
+    ball.vy = -Math.abs(ball.vy);
     if (players[4].vx !== 0) {
       ball.vx += players[4].vx * 0.5;
       clampBallSpeed();
-    } else {
-      resetBallVelocity();
     }
     sendToId(4, JSON.stringify({ type: "hit" }));
     lastHit = 4;
+  }
+
+  // sarokfal pattanás (most cornerSize-ot használva)
+  if (ball.x - BALL_R <= 0 && (ball.y < FIELD_H - cornerSize && ball.y > cornerSize)) {
+    // gól — bal oldali kapu
+  } else if (ball.x - BALL_R <= 0) {
+    ball.x = BALL_R;
+    ball.vx = Math.abs(ball.vx);
+  }
+  if (ball.x + BALL_R >= FIELD_W && (ball.y < FIELD_H - cornerSize && ball.y > cornerSize)) {
+    // gól — jobb oldali kapu
+  } else if (ball.x + BALL_R >= FIELD_W) {
+    ball.x = FIELD_W - BALL_R;
+    ball.vx = -Math.abs(ball.vx);
+  }
+  if (ball.y - BALL_R <= 0 && (ball.x > cornerSize && ball.x < FIELD_W - cornerSize)) {
+    // gól — felső kapu
+  } else if (ball.y - BALL_R <= 0) {
+    ball.y = BALL_R;
+    ball.vy = Math.abs(ball.vy);
+  }
+  if (ball.y + BALL_R >= FIELD_H && (ball.x > cornerSize && ball.x < FIELD_W - cornerSize)) {
+    // gól — alsó kapu
+  } else if (ball.y + BALL_R >= FIELD_H) {
+    ball.y = FIELD_H - BALL_R;
+    ball.vy = -Math.abs(ball.vy);
   }
 
   // pontszerzés
@@ -251,7 +276,6 @@ wss.on("connection", (ws, req) => {
     if (!wantId || wantId < 1 || wantId > 4) {
       ws.close(1008, "Érvénytelen vagy hiányzó id (1..4)"); return;
     }
-    // Foglalt-e?
     let inUse = false;
     wss.clients.forEach(c => {
       if (c.readyState === WebSocket.OPEN && c.role === "esp" && c.id === wantId) inUse = true;

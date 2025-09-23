@@ -1,271 +1,275 @@
 <!doctype html>
 <html lang="hu">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4-játékos Pong</title>
-<style>
-  body {
-    margin:0;
-    font-family:system-ui,Segoe UI,Roboto;
-    background:#0b1220;
-    color:#dfe7ff;
-    display:flex;
-    flex-direction:column;
-    height:100vh;
-    overflow:hidden;
-  }
-  header {
-    padding:10px 16px;
-    display:flex;
-    gap:12px;
-    align-items:center;
-    background:#071025;
-    box-shadow:0 2px 6px rgba(0,0,0,.6);
-    z-index:10;
-  }
-  header h1 { font-size:16px; margin:0; }
-  #status { margin-left:auto; font-size:13px; opacity:.9; }
-  #game-wrap {
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-  }
-  #scoreboard {
-    font-size: 28px;
-    font-weight: bold;
-    margin-bottom: 8px;
-    text-align: center;
-    z-index: 10;
-  }
-  #roles {
-    font-size: 18px;
-    z-index: 10;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0 20px 8px 20px;
-    width: calc(100% - 40px);
-    position: relative;
-  }
-  #roles .players {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    text-align: center;
-  }
-  #roles .players span {
-    font-size:20px;
-    font-weight:bold;
-    line-height:1.2;
-    white-space:nowrap;
-  }
-  #roles .hint {
-    position: absolute;
-    right: 0;
-    font-size:16px;
-    color:#fff;
-    opacity:0.9;
-    white-space:nowrap;
-  }
-  canvas {
-    background:#0b2a3a;
-    border:6px solid #022539;
-    border-radius:8px;
-    width:100vw;
-    height:100vh;
-    object-fit:contain;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>4-játékos Pong</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, Segoe UI, Roboto;
+      background: #0b1220;
+      color: #dfe7ff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 10px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: #071025;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .6);
+      z-index: 10;
+    }
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+    }
+    #status {
+      margin-left: auto;
+      font-size: 13px;
+      opacity: .9;
+    }
+    #game-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    canvas {
+      background: #0b2a3a;
+      border: 6px solid #022539;
+      border-radius: 8px;
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+    }
+  </style>
 </head>
 <body>
-<header>
-  <h1>4-játékos Pong</h1>
-  <div id="status">WS: <span id="ws-state">csatlakozás...</span></div>
-</header>
+  <header>
+    <h1>4-játékos Pong</h1>
+    <div id="status">WS: <span id="ws-state">csatlakozás...</span></div>
+  </header>
+  <div id="game-wrap">
+    <canvas id="game"></canvas>
+  </div>
 
-<div id="game-wrap">
-  <div id="scoreboard">Pontszámok: <span id="scores">—</span></div>
-  <div id="roles">Várakozás...</div>
-  <canvas id="game"></canvas>
-</div>
+  <!-- Atari Pong hangok -->
+  <audio id="sound-paddle" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+  <audio id="sound-score" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
 
-<script>
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
 
-  let wsUrl = "ws://192.168.88.129:8080/4playerpong?type=display";
-  let socket = null;
-  let gameState = null;
-  let winnerMessage = null;
-  let winnerTimeout = null;
+    let wsUrl = "ws://192.168.88.129:8080/4playerpong?type=display";
+    let socket = null;
+    let gameState = null;
+    let winnerMessage = null;
+    let winnerTimeout = null;
 
-  const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
+    const colors = {
+      1: "#75e0ff",
+      2: "#ffd57a",
+      3: "#9effa3",
+      4: "#ff9ecb"
+    };
 
-  function resizeCanvas() {
-    const headerH = document.querySelector("header").offsetHeight;
-    const scoreH  = document.getElementById("scoreboard").offsetHeight
-                  + document.getElementById("roles").offsetHeight;
+    const paddleSound = document.getElementById('sound-paddle');
+    const scoreSound = document.getElementById('sound-score');
 
-    canvas.width = Math.max(400, window.innerWidth);
-    canvas.height = Math.max(300, window.innerHeight - headerH - scoreH - 20);
+    function resizeCanvas() {
+      const headerH = document.querySelector("header").offsetHeight;
+      canvas.width = Math.max(400, window.innerWidth);
+      canvas.height = Math.max(300, window.innerHeight - headerH - 10);
 
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({
-        type: "displaySize",
-        width: canvas.width,
-        height: canvas.height
-      }));
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: "displaySize",
+          width: canvas.width,
+          height: canvas.height
+        }));
+      }
     }
-  }
 
-  window.addEventListener('resize', () => { resizeCanvas(); draw(); });
-  resizeCanvas();
-  setTimeout(resizeCanvas, 500);
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      draw();
+    });
+    resizeCanvas();
 
-  function tryConnect() {
-    updateWSState('próbálkozás...');
-    socket = new WebSocket(wsUrl);
-    socket.onopen = () => {
-      updateWSState('csatlakozva');
-      socket.send(JSON.stringify({
-        type: "displaySize",
-        width: canvas.width,
-        height: canvas.height
-      }));
-    };
-    socket.onerror = () => updateWSState('hiba');
-    socket.onclose = () => {
-      updateWSState('kapcsolat bontva, újracsatlakozás...');
-      setTimeout(() => location.reload(), 1200);
-    };
-    socket.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.type === "state") {
-        gameState = msg;
+    function tryConnect() {
+      updateWSState('próbálkozás...');
+      socket = new WebSocket(wsUrl);
 
-        // scoreboard
-        document.getElementById("scores").innerHTML =
-          `<span style="color:${colors[1]}">Bal</span>: <span style="color:white">${msg.scores[1]}</span> |
-           <span style="color:${colors[2]}">Jobb</span>: <span style="color:white">${msg.scores[2]}</span> |
-           <span style="color:${colors[3]}">Felső</span>: <span style="color:white">${msg.scores[3]}</span> |
-           <span style="color:${colors[4]}">Alsó</span>: <span style="color:white">${msg.scores[4]}</span>`;
+      socket.onopen = () => {
+        updateWSState('csatlakozva');
+        socket.send(JSON.stringify({
+          type: "displaySize",
+          width: canvas.width,
+          height: canvas.height
+        }));
+      };
 
-        // roles + hint
-        if (msg.roles) {
-          const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-          let playersHtml = "";
-          for (let i=1;i<=4;i++) {
-            playersHtml += `<span>
-              <span style="color:${colors[i]}">${names[i]}</span>:
-              <span style="color:white">${msg.roles[i]}</span>
-            </span>`;
-          }
-          const html = `
-            <div class="players">${playersHtml}</div>
-            <div class="hint">Nyomd meg a gombot a belépéshez!</div>
-          `;
-          document.getElementById("roles").innerHTML = html;
+      socket.onerror = () => updateWSState('hiba');
+
+      socket.onclose = () => {
+        updateWSState('kapcsolat bontva, újracsatlakozás...');
+        setTimeout(() => location.reload(), 1200);
+      };
+
+      socket.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+
+        if (msg.type === "state") {
+          gameState = msg;
         }
+
+        // Pong hangok kezelése
+        if (msg.type === "hit") {
+          // labda eltalálja az ütőt
+          paddleSound.currentTime = 0;
+          paddleSound.play();
+        }
+
+        if (msg.type === "score") {
+          // gól
+          scoreSound.currentTime = 0;
+          scoreSound.play();
+        }
+
+        if (msg.type === "winner") {
+          const winnerNames = { 1: "Bal", 2: "Jobb", 3: "Felső", 4: "Alsó" };
+          winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
+          if (winnerTimeout) clearTimeout(winnerTimeout);
+          winnerTimeout = setTimeout(() => {
+            winnerMessage = null;
+          }, 3000);
+        }
+      };
+    }
+
+    tryConnect();
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const PADDLE_H = gameState?.paddles?.PADDLE_H ?? Math.floor(canvas.height * 0.30);
+      const PADDLE_W = gameState?.paddles?.PADDLE_W ?? Math.floor(canvas.width * 0.18);
+      const PADDLE_THICK = gameState?.paddles?.PADDLE_THICKNESS ?? Math.floor(Math.min(canvas.width, canvas.height) * 0.035);
+
+      let p1y = gameState?.players?.[1]?.y ?? (canvas.height / 2 - PADDLE_H / 2);
+      let p2y = gameState?.players?.[2]?.y ?? (canvas.height / 2 - PADDLE_H / 2);
+      let p3x = gameState?.players?.[3]?.x ?? (canvas.width / 2 - PADDLE_W / 2);
+      let p4x = gameState?.players?.[4]?.x ?? (canvas.width / 2 - PADDLE_W / 2);
+
+      let bx = gameState?.ball?.x ?? canvas.width / 2;
+      let by = gameState?.ball?.y ?? canvas.height / 2;
+
+      // --- Kapuk rajzolása ---
+      const goalSize = 120;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 4;
+
+      // felső kapu
+      ctx.beginPath();
+      ctx.moveTo((canvas.width - goalSize) / 2, 0);
+      ctx.lineTo((canvas.width + goalSize) / 2, 0);
+      ctx.stroke();
+
+      // alsó kapu
+      ctx.beginPath();
+      ctx.moveTo((canvas.width - goalSize) / 2, canvas.height);
+      ctx.lineTo((canvas.width + goalSize) / 2, canvas.height);
+      ctx.stroke();
+
+      // bal kapu
+      ctx.beginPath();
+      ctx.moveTo(0, (canvas.height - goalSize) / 2);
+      ctx.lineTo(0, (canvas.height + goalSize) / 2);
+      ctx.stroke();
+
+      // jobb kapu
+      ctx.beginPath();
+      ctx.moveTo(canvas.width, (canvas.height - goalSize) / 2);
+      ctx.lineTo(canvas.width, (canvas.height + goalSize) / 2);
+      ctx.stroke();
+
+      // --- Paddlek ---
+      ctx.fillStyle = colors[1];
+      ctx.fillRect(30, p1y, PADDLE_THICK, PADDLE_H);
+      if (gameState?.roles?.[1] === "AI") {
+        ctx.fillStyle = "#000";
+        ctx.font = "20px bold sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("AI", 30 + PADDLE_THICK / 2, p1y + PADDLE_H / 2 + 6);
       }
-      if (msg.type === "winner") {
-        const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-        winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
-        if (winnerTimeout) clearTimeout(winnerTimeout);
-        winnerTimeout = setTimeout(() => { winnerMessage = null; }, 3000);
+
+      ctx.fillStyle = colors[2];
+      ctx.fillRect(canvas.width - 30 - PADDLE_THICK, p2y, PADDLE_THICK, PADDLE_H);
+      if (gameState?.roles?.[2] === "AI") {
+        ctx.fillStyle = "#000";
+        ctx.font = "20px bold sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("AI", canvas.width - 30 - PADDLE_THICK / 2, p2y + PADDLE_H / 2 + 6);
       }
-    };
-  }
-  tryConnect();
 
-  function draw() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = colors[3];
+      ctx.fillRect(p3x, 30, PADDLE_W, PADDLE_THICK);
+      if (gameState?.roles?.[3] === "AI") {
+        ctx.fillStyle = "#000";
+        ctx.font = "20px bold sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("AI", p3x + PADDLE_W / 2, 30 + PADDLE_THICK / 2 + 6);
+      }
 
-    const FIELD_W = gameState?.paddles ? gameState.paddles.PADDLE_W : canvas.width;
-    const FIELD_H = gameState?.paddles ? gameState.paddles.PADDLE_H : canvas.height;
+      ctx.fillStyle = colors[4];
+      ctx.fillRect(p4x, canvas.height - 30 - PADDLE_THICK, PADDLE_W, PADDLE_THICK);
+      if (gameState?.roles?.[4] === "AI") {
+        ctx.fillStyle = "#000";
+        ctx.font = "20px bold sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("AI", p4x + PADDLE_W / 2, canvas.height - 30 - PADDLE_THICK / 2 + 6);
+      }
 
-    // számoljuk ki a pálya méretét a szerverrel kompatibilisen
-    const PADDLE_H = (gameState && gameState.paddles) ? gameState.paddles.PADDLE_H : Math.floor(canvas.height * 0.30);
-    const PADDLE_W = (gameState && gameState.paddles) ? gameState.paddles.PADDLE_W : Math.floor(canvas.width * 0.18);
-    const PADDLE_THICK = (gameState && gameState.paddles) ? gameState.paddles.PADDLE_THICKNESS : Math.floor(Math.min(canvas.width, canvas.height) * 0.035);
-
-    // default pozíciók, ha nincs még state
-    let p1y = gameState?.players?.[1]?.y ?? (canvas.height/2 - PADDLE_H/2);
-    let p2y = gameState?.players?.[2]?.y ?? (canvas.height/2 - PADDLE_H/2);
-    let p3x = gameState?.players?.[3]?.x ?? (canvas.width/2 - PADDLE_W/2);
-    let p4x = gameState?.players?.[4]?.x ?? (canvas.width/2 - PADDLE_W/2);
-    // labda
-    let bx  = gameState?.ball?.x ?? canvas.width/2;
-    let by  = gameState?.ball?.y ?? canvas.height/2;
-
-    // ha a szerver más koordinátákat használ (FIELD_W/HEIGHT), skálázzuk
-    // feltételezve, hogy a szerver pálya (FIELD_W,FIELD_H) alapja megegyezik a canvas-szal
-    // (a szerveren a displaySize-ot elküldjük, így elméletileg megegyeznek)
-
-    if (!gameState) {
+      // --- Labda ---
       ctx.fillStyle = "white";
-      ctx.font = "20px sans-serif";
-      ctx.fillText("Várakozás a szerverre...", canvas.width/2 - 100, canvas.height/2);
-    }
+      ctx.beginPath();
+      ctx.arc(bx, by, 12, 0, Math.PI * 2);
+      ctx.fill();
 
-    // paddlek kirajzolása + AI felirat
-    ctx.fillStyle = colors[1];
-    ctx.fillRect(30, p1y, PADDLE_THICK, PADDLE_H);
-    if (gameState?.roles?.[1] === "AI") {
-      ctx.fillStyle = "white";
-      ctx.font = "16px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText("AI", 30 + PADDLE_THICK + 5, p1y + PADDLE_H/2);
-    }
+      // --- Pontok ---
+      if (gameState?.scores) {
+        ctx.fillStyle = "white";
+        ctx.font = "24px bold sans-serif";
+        ctx.textAlign = "center";
 
-    ctx.fillStyle = colors[2];
-    ctx.fillRect(canvas.width - 30 - PADDLE_THICK, p2y, PADDLE_THICK, PADDLE_H);
-    if (gameState?.roles?.[2] === "AI") {
-      ctx.fillStyle = "white";
-      ctx.font = "16px sans-serif";
-      ctx.textAlign = "right";
-      ctx.fillText("AI", canvas.width - 30 - PADDLE_THICK - 5, p2y + PADDLE_H/2);
-    }
+        ctx.fillText(gameState.scores[3] ?? 0, canvas.width / 2, 40); // felső
+        ctx.fillText(gameState.scores[4] ?? 0, canvas.width / 2, canvas.height - 40); // alsó
+        ctx.fillText(gameState.scores[1] ?? 0, 40, canvas.height / 2); // bal
+        ctx.fillText(gameState.scores[2] ?? 0, canvas.width - 40, canvas.height / 2); // jobb
+      }
 
-    ctx.fillStyle = colors[3];
-    ctx.fillRect(p3x, 30, PADDLE_W, PADDLE_THICK);
-    if (gameState?.roles?.[3] === "AI") {
-      ctx.fillStyle = "white";
-      ctx.font = "16px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("AI", p3x + PADDLE_W/2, 30 - 8);
-    }
+      // --- Győztes üzenet ---
+      if (winnerMessage) {
+        ctx.fillStyle = "yellow";
+        ctx.font = "36px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(winnerMessage, canvas.width / 2, canvas.height / 2);
+      }
 
-    ctx.fillStyle = colors[4];
-    ctx.fillRect(p4x, canvas.height - 30 - PADDLE_THICK, PADDLE_W, PADDLE_THICK);
-    if (gameState?.roles?.[4] === "AI") {
-      ctx.fillStyle = "white";
-      ctx.font = "16px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("AI", p4x + PADDLE_W/2, canvas.height - 30 - PADDLE_THICK - 8);
+      requestAnimationFrame(draw);
     }
-    // labda
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(bx, by, 12, 0, Math.PI*2);
-    ctx.fill();
+    draw();
 
-    if (winnerMessage) {
-      ctx.fillStyle = "yellow";
-      ctx.font = "36px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(winnerMessage, canvas.width/2, canvas.height/2);
-      ctx.textAlign = "left";
+    function updateWSState(s) {
+      document.getElementById('ws-state').textContent = s;
     }
-    requestAnimationFrame(draw);
-  }
-  draw();
-
-  function updateWSState(s){ document.getElementById('ws-state').textContent = s; }
-</script>
+  </script>
 </body>
 </html>
