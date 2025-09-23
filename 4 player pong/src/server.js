@@ -71,6 +71,52 @@ function resetGame() {
 
 resetGame();
 
+// --- ÚJ: előrejelzés labda pályára ---
+function predictBallY(paddleX) {
+  let simX = ball.x, simY = ball.y;
+  let vx = ball.vx, vy = ball.vy;
+
+  while (true) {
+    simX += vx;
+    simY += vy;
+
+    // felső/alsó fal pattanás
+    if (simY - BALL_R <= 0) { simY = BALL_R; vy = Math.abs(vy); }
+    if (simY + BALL_R >= FIELD_H) { simY = FIELD_H - BALL_R; vy = -Math.abs(vy); }
+
+    // bal/jobb paddle vonal elérése
+    if (vx < 0 && simX - BALL_R <= paddleX) return simY;
+    if (vx > 0 && simX + BALL_R >= paddleX) return simY;
+
+    // biztonsági limit
+    if (simX < -100 || simX > FIELD_W+100) break;
+  }
+  return FIELD_H/2; // fallback
+}
+
+function predictBallX(paddleY) {
+  let simX = ball.x, simY = ball.y;
+  let vx = ball.vx, vy = ball.vy;
+
+  while (true) {
+    simX += vx;
+    simY += vy;
+
+    // bal/jobb fal pattanás
+    if (simX - BALL_R <= 0) { simX = BALL_R; vx = Math.abs(vx); }
+    if (simX + BALL_R >= FIELD_W) { simX = FIELD_W - BALL_R; vx = -Math.abs(vx); }
+
+    // felső/alsó paddle vonal elérése
+    if (vy < 0 && simY - BALL_R <= paddleY) return simX;
+    if (vy > 0 && simY + BALL_R >= paddleY) return simX;
+
+    if (simY < -100 || simY > FIELD_H+100) break;
+  }
+  return FIELD_W/2; // fallback
+}
+
+// --- ÚJ: AI döntés késleltetéssel ---
+let aiDecisionDelay = {1:0,2:0,3:0,4:0};
 setInterval(() => {
   if (gamePaused) {
     broadcastTo("display", JSON.stringify(buildState()));
@@ -79,25 +125,49 @@ setInterval(() => {
 
   const { PADDLE_H, PADDLE_W, PADDLE_THICKNESS } = computePaddles();
   const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
+const cornerLimit = 120;
 
-  // corner limit: ne menjen be a paddlek sarkok alá (figyelembe vesszük a paddle vastagságát is)
-  const cornerLimit =  120;
-
-  // AI mozgatás
   for (let i=1;i<=4;i++) {
     if (aiEnabled[i]) {
-      if (i === 1 || i === 2) {
-        let paddleCenter = players[i].y + PADDLE_H/2;
-        players[i].dir = (ball.y < paddleCenter - AI_DEADZONE) ? -1 :
-                         (ball.y > paddleCenter + AI_DEADZONE) ? 1 : 0;
-      }
-      if (i === 3 || i === 4) {
-        let paddleCenter = players[i].x + PADDLE_W/2;
-        players[i].dir = (ball.x < paddleCenter - AI_DEADZONE) ? -1 :
-                         (ball.x > paddleCenter + AI_DEADZONE) ? 1 : 0;
+      if (!aiDecisionDelay[i]) aiDecisionDelay[i] = 0;
+      if (Date.now() >= aiDecisionDelay[i]) {
+        // lassabb reakció
+        aiDecisionDelay[i] = Date.now() + (200 + Math.random()*200); // 200–400ms
+
+        // kis esély hogy rosszat dönt (hibázás)
+        if (Math.random() < 0.08) {  // 8% hiba
+          players[i].dir = (Math.random() < 0.5) ? -1 : 1;
+          continue;
+        }
+
+        if (i === 1) { // bal
+          let target = predictBallY(PADDLE_OFFSET + PADDLE_THICKNESS) + (Math.random()*100 - 50); // ±50
+          let paddleCenter = players[i].y + PADDLE_H/2;
+          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
+                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
+        }
+        if (i === 2) { // jobb
+          let target = predictBallY(FIELD_W - PADDLE_OFFSET - PADDLE_THICKNESS) + (Math.random()*100 - 50);
+          let paddleCenter = players[i].y + PADDLE_H/2;
+          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
+                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
+        }
+        if (i === 3) { // felső
+          let target = predictBallX(PADDLE_OFFSET + PADDLE_THICKNESS) + (Math.random()*100 - 50);
+          let paddleCenter = players[i].x + PADDLE_W/2;
+          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
+                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
+        }
+        if (i === 4) { // alsó
+          let target = predictBallX(FIELD_H - PADDLE_OFFSET - PADDLE_THICKNESS) + (Math.random()*100 - 50);
+          let paddleCenter = players[i].x + PADDLE_W/2;
+          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
+                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
+        }
       }
     }
   }
+
 
   // paddlek mozgatása (keret közti tartományban, de most cornerLimit-tel)
   if (players[1]) {
@@ -207,9 +277,12 @@ setInterval(() => {
   }
 
   // pontszerzés
+
   if (ball.x < -BALL_R || ball.x > FIELD_W + BALL_R || ball.y < -BALL_R || ball.y > FIELD_H + BALL_R) {
+    // +1 annak aki utoljára ütötte
     if (lastHit) {
       scores[lastHit]++;
+
       if (scores[lastHit] >= 5) {
         console.log(`Játékos ${lastHit} nyert!`);
         broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
@@ -222,6 +295,17 @@ setInterval(() => {
         }, 2000);
       }
     }
+
+    if (ball.x < -BALL_R) {         // bal kapu
+      scores[1] = (scores[1] || 0) - 1;
+    } else if (ball.x > FIELD_W + BALL_R) { // jobb kapu
+      scores[2] = (scores[2] || 0) - 1;
+    } else if (ball.y < -BALL_R) {  // felső kapu
+      scores[3] = (scores[3] || 0) - 1;
+    } else if (ball.y > FIELD_H + BALL_R) { // alsó kapu
+      scores[4] = (scores[4] || 0) - 1;
+    }
+
     resetBall();
     lastHit = null;
   }
