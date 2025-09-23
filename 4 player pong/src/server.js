@@ -204,58 +204,78 @@ setInterval(() => {
   const cornerSize = cornerLimit;
 
   // --- ütközések paddlékkel pontosítva (prevX/prevY-vel) ---
-if ((ball.x - BALL_R) <= (leftPaddleX + PADDLE_THICKNESS)
-    && (ball.prevX - BALL_R) > (leftPaddleX + PADDLE_THICKNESS) // előző frame még kívül
-    && (ball.y + BALL_R) >= players[1].y
-    && (ball.y - BALL_R) <= players[1].y + PADDLE_H) {
-  ball.x = leftPaddleX + PADDLE_THICKNESS + BALL_R;
-  ball.vx = Math.abs(ball.vx);
-  if (players[1].vy !== 0) {
-    ball.vy += players[1].vy * 0.5;
-    clampBallSpeed();
+ // Left paddle
+if (ball.x - BALL_R <= leftPaddleX + PADDLE_THICKNESS &&
+    ball.x + BALL_R >= leftPaddleX &&
+    ball.y + BALL_R >= players[1].y &&
+    ball.y - BALL_R <= players[1].y + PADDLE_H) {
+  if (ball.vx < 0) {
+    // balról jött
+    ball.x = leftPaddleX + PADDLE_THICKNESS + BALL_R;
+    ball.vx = Math.abs(ball.vx);
+  } else {
+    // hátulról jött (jobbról)
+    ball.x = leftPaddleX - BALL_R;
+    ball.vx = -Math.abs(ball.vx);
   }
+  if (players[1].vy) { ball.vy += players[1].vy * 0.5; clampBallSpeed(); }
   sendToId(1, JSON.stringify({ type: "hit" }));
   lastHit = 1;
 }
 
-if ((ball.x + BALL_R) >= rightPaddleX
-    && (ball.prevX + BALL_R) < rightPaddleX // előző frame még kívül
-    && (ball.y + BALL_R) >= players[2].y
-    && (ball.y - BALL_R) <= players[2].y + PADDLE_H) {
-  ball.x = rightPaddleX - BALL_R;
-  ball.vx = -Math.abs(ball.vx);
-  if (players[2].vy !== 0) {
-    ball.vy += players[2].vy * 0.5;
-    clampBallSpeed();
+
+// Right paddle
+if (ball.x + BALL_R >= rightPaddleX &&
+    ball.x - BALL_R <= rightPaddleX + PADDLE_THICKNESS &&
+    ball.y + BALL_R >= players[2].y &&
+    ball.y - BALL_R <= players[2].y + PADDLE_H) {
+  if (ball.vx > 0) {
+    // jobbról jött
+    ball.x = rightPaddleX - BALL_R;
+    ball.vx = -Math.abs(ball.vx);
+  } else {
+    // hátulról jött (balról)
+    ball.x = rightPaddleX + PADDLE_THICKNESS + BALL_R;
+    ball.vx = Math.abs(ball.vx);
   }
+  if (players[2].vy) { ball.vy += players[2].vy * 0.5; clampBallSpeed(); }
   sendToId(2, JSON.stringify({ type: "hit" }));
   lastHit = 2;
 }
-
-if ((ball.y - BALL_R) <= (topPaddleY + PADDLE_THICKNESS)
-    && (ball.prevY - BALL_R) > (topPaddleY + PADDLE_THICKNESS) // előző frame még felette
-    && (ball.x + BALL_R) >= players[3].x
-    && (ball.x - BALL_R) <= players[3].x + PADDLE_W) {
-  ball.y = topPaddleY + PADDLE_THICKNESS + BALL_R;
-  ball.vy = Math.abs(ball.vy);
-  if (players[3].vx !== 0) {
-    ball.vx += players[3].vx * 0.5;
-    clampBallSpeed();
+// Top paddle
+if (ball.y - BALL_R <= topPaddleY + PADDLE_THICKNESS &&
+    ball.y + BALL_R >= topPaddleY &&
+    ball.x + BALL_R >= players[3].x &&
+    ball.x - BALL_R <= players[3].x + PADDLE_W) {
+  if (ball.vy < 0) {
+    // fentről jött
+    ball.y = topPaddleY + PADDLE_THICKNESS + BALL_R;
+    ball.vy = Math.abs(ball.vy);
+  } else {
+    // hátulról jött (lentről)
+    ball.y = topPaddleY - BALL_R;
+    ball.vy = -Math.abs(ball.vy);
   }
+  if (players[3].vx) { ball.vx += players[3].vx * 0.5; clampBallSpeed(); }
   sendToId(3, JSON.stringify({ type: "hit" }));
   lastHit = 3;
 }
 
-if ((ball.y + BALL_R) >= bottomPaddleY
-    && (ball.prevY + BALL_R) < bottomPaddleY // előző frame még fölötte
-    && (ball.x + BALL_R) >= players[4].x
-    && (ball.x - BALL_R) <= players[4].x + PADDLE_W) {
-  ball.y = bottomPaddleY - BALL_R;
-  ball.vy = -Math.abs(ball.vy);
-  if (players[4].vx !== 0) {
-    ball.vx += players[4].vx * 0.5;
-    clampBallSpeed();
+// Bottom paddle
+if (ball.y + BALL_R >= bottomPaddleY &&
+    ball.y - BALL_R <= bottomPaddleY + PADDLE_THICKNESS &&
+    ball.x + BALL_R >= players[4].x &&
+    ball.x - BALL_R <= players[4].x + PADDLE_W) {
+  if (ball.vy > 0) {
+    // lentről jött
+    ball.y = bottomPaddleY - BALL_R;
+    ball.vy = -Math.abs(ball.vy);
+  } else {
+    // hátulról jött (fentről)
+    ball.y = bottomPaddleY + PADDLE_THICKNESS + BALL_R;
+    ball.vy = Math.abs(ball.vy);
   }
+  if (players[4].vx) { ball.vx += players[4].vx * 0.5; clampBallSpeed(); }
   sendToId(4, JSON.stringify({ type: "hit" }));
   lastHit = 4;
 }
