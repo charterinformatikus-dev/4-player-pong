@@ -6,4 +6,6 @@ hangszoró gpio5 = 10
 switch gpio4 = 9
 y gpio3 = 8
 x gpio2 = 7
+led gpio15 = 21
 ```
+
