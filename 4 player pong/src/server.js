@@ -21,7 +21,7 @@ let FIELD_H = 400;
 const PADDLE_SIZE_RATIO = 0.20;
 const PADDLE_THICK_RATIO = 0.035;
 const PADDLE_OFFSET = 30;
-const BALL_R = 16;
+const BALL_R = 20;
 const AI_DEADZONE = 20;
 const MAX_BALL_SPEED = 18;
 
