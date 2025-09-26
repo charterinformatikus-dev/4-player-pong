@@ -4,8 +4,8 @@
 #include <ArduinoJson.h>
 
 // ===== WIFI =====
-const char* ssid = "Charter Informatika 2019_";
-const char* password = "charter1";
+const char* ssid = "PONG_ROUTER";
+const char* password = "charter2019";
 
 WebSocketsClient webSocket;
 
@@ -14,6 +14,11 @@ const int pinX = 3;
 const int pinY = 2;
 const int joySwitchPin = 4;   // gomb
 const int soundPin = 5;
+
+// LED villogtatás (GPIO 15)
+const int ledPin = 15;
+unsigned long lastBlink = 0;
+const unsigned long BLINK_INTERVAL = 5000; // 5 másodperc
 
 String lastDir = "stop";
 bool joined = false;
@@ -109,6 +114,10 @@ void setup() {
 
   pinMode(soundPin, OUTPUT);
   pinMode(joySwitchPin, INPUT_PULLUP);
+
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+
   tone(soundPin, 1500, 100);
   delay(120);
   tone(soundPin, 800, 120);
@@ -137,7 +146,7 @@ void setup() {
 
   // WebSocket
   String path = String("/4playerpong?type=esp&id=") + String(playerId);
-  webSocket.begin("192.168.88.129", 8080, path.c_str());
+  webSocket.begin("raspberrypi.local", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(3000);
 
@@ -166,6 +175,12 @@ void loop() {
     delay(200); // debounce
   }
 
+  unsigned long blinkNow = millis();
+  if (blinkNow - lastBlink >= BLINK_INTERVAL) {
+    lastBlink = blinkNow;
+    digitalWrite(ledPin, !digitalRead(ledPin)); // váltogatja az állapotot
+  }
+
   if (joined && playerId != 0) {
     int xVal = readFast(pinX);
     int yVal = readFast(pinY);
@@ -182,13 +197,13 @@ void loop() {
     // --- Paddle-specifikus irány logika ---
     if (playerId == 1 || playerId == 2) {
       // BAL / JOBB → Y irány
-      if (absDY > dz || yVal <= 50 || yVal >= 4045) {
+      if (absDY > dz || yVal <= 10 || yVal >= 4095) {
         dir = (deltaY < 0) ? "up" : "down";
       }
     }
     else if (playerId == 3 || playerId == 4) {
       // FELSŐ / ALSÓ → X irány
-      if (absDX > dz || xVal <= 50 || xVal >= 4045) {
+      if (absDX > dz || xVal <= 10 || xVal >= 4095) {
         dir = (deltaX < 0) ? "right" : "left";
       }
     }
