@@ -18,8 +18,8 @@ let FIELD_W = 600;
 let FIELD_H = 400;
 
 // PADDLE beállítások
-const PADDLE_SIZE_RATIO = 0.20;
-const PADDLE_THICK_RATIO = 0.035;
+const PADDLE_SIZE_RATIO = 0.27;
+const PADDLE_THICK_RATIO = 0.05;
 const PADDLE_OFFSET = 30;
 const BALL_R = 20;
 const AI_DEADZONE = 20;
