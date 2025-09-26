@@ -157,9 +157,9 @@ function drawScores(GOAL_MARGIN) {
   ctx.textAlign = "center";
 
   for (let i=1;i<=4;i++) {
-    let scale = 1;
+    let scale = 1.3; // alapból 30%-kal nagyobb
     if (scoreAnimations[i] > 0) {
-      scale = 1 + 0.5 * scoreAnimations[i]; // max +50%
+      scale *= 1 + 0.3 * scoreAnimations[i]; // animáció extra növekedés +30%
       scoreAnimations[i] -= 0.05; // lassan csökken
       if (scoreAnimations[i] < 0) scoreAnimations[i] = 0;
     }
@@ -173,12 +173,11 @@ function drawScores(GOAL_MARGIN) {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
-    ctx.font = "28px bold sans-serif";
+    ctx.font = "36px bold sans-serif"; // 28px helyett 36px
     ctx.fillText(gameState.scores[i] ?? 0, 0, 0);
     ctx.restore();
   }
 }
-
 
 
 function draw() {
@@ -278,20 +277,21 @@ function draw() {
   ctx.arc(bx, by, 20, 0, Math.PI*2);
   ctx.fill();
 
-  // --- Pontok a kapunyílásoknál ---
-  if (gameState?.scores) {
-    ctx.fillStyle = "white";
-    ctx.font = "28px bold sans-serif";
-    ctx.textAlign = "center";
-    // felső
-    ctx.fillText(gameState.scores[3] ?? 0, canvas.width/2, GOAL_MARGIN - 10);
-    // alsó
-    ctx.fillText(gameState.scores[4] ?? 0, canvas.width/2, canvas.height - GOAL_MARGIN + 35);
-    // bal
-    ctx.fillText(gameState.scores[1] ?? 0, GOAL_MARGIN - 20, canvas.height/2 + 10);
-    // jobb
-    ctx.fillText(gameState.scores[2] ?? 0, canvas.width - GOAL_MARGIN + 20, canvas.height/2 + 10);
-  }
+// --- Pontok a kapunyílásoknál ---
+if (gameState?.scores) {
+  ctx.fillStyle = "white";
+  ctx.font = "28px bold sans-serif";
+  ctx.textAlign = "center";
+  // felső
+  ctx.fillText(gameState.scores[3] ?? 0, canvas.width/2, GOAL_MARGIN - 10);
+  // alsó
+  ctx.fillText(gameState.scores[4] ?? 0, canvas.width/2, canvas.height - GOAL_MARGIN + 35);
+  // bal
+  ctx.fillText(gameState.scores[1] ?? 0, GOAL_MARGIN - 20, canvas.height/2 + 10);
+  // jobb
+  ctx.fillText(gameState.scores[2] ?? 0, canvas.width - GOAL_MARGIN + 20, canvas.height/2 + 10);
+}
+
 
   drawScores(GOAL_MARGIN);
 
