@@ -15,8 +15,9 @@ void loop() {
   int rawy = analogRead(ANALOG_PINy);
   int rawx = analogRead(ANALOG_PINx);
   // Egyszerű feszültség-becslés 3.3V táp mellett (11dB nélkül):
-  float voltagex = (rawx / (4095.0 * 2)) * 3.3;  // ha 11dB-t használsz, kb. 3.6V a teljes skála
-  float voltagey = (rawy / (4095.0 * 2)) * 3.3;  // ha 11dB-t használsz, kb. 3.6V a teljes skála
+  /* Állitsad át 3.3-ra mert a kontrollereken 3.7 van és Levivel 3.3 számolgattunk és meglehet hogy összezavaró lesz */
+  float voltagex = (rawx / (4095.0 * 2)) * 3.7;  // ha 11dB-t használsz, kb. 3.6V a teljes skála
+  float voltagey = (rawy / (4095.0 * 2)) * 3.7;  // ha 11dB-t használsz, kb. 3.6V a teljes skála
 
   Serial.print("RAWx=");
   Serial.print(rawx);
