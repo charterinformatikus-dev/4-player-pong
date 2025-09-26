@@ -7,5 +7,7 @@ switch gpio4 = 9
 y gpio3 = 8
 x gpio2 = 7
 led gpio15 = 21
+
+Piros joystick értékei magassak  
 ```
 
