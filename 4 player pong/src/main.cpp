@@ -29,8 +29,8 @@ const int deadzones[5] = {
   0,    // index 0 nincs használva
   200,  // 1: Bal
   400,  // 2: Jobb 
-  170,  // 3: Felső
-  500   // 4: Alsó
+  180,  // 3: Felső
+  28   // 4: Alsó
 };
 
 // Középértékek (setup alatt számoljuk ki)
@@ -48,7 +48,7 @@ const unsigned long SEND_INTERVAL = 33; // ~30Hz
 // stop figyelés
 unsigned long stopStart = 0;
 bool returnedToAI = false;
-const unsigned long STOP_TIMEOUT = 8000;
+const unsigned long STOP_TIMEOUT = 20000;
 
 // hang vezérlés
 bool toneActive = false;
@@ -198,13 +198,13 @@ void loop() {
     // --- Paddle-specifikus irány logika ---
     if (playerId == 1 || playerId == 2) {
       // BAL / JOBB → Y irány
-      if (absDY > dz || yVal <= 10 || yVal >= 4085) {
+      if (absDY > dz) {
         dir = (deltaY < 0) ? "up" : "down";
       }
     }
     else if (playerId == 3 || playerId == 4) {
       // FELSŐ / ALSÓ → X irány
-      if (absDX > dz || xVal <= 10 || xVal >= 4085) {
+      if (absDX > dz) {
         dir = (deltaX < 0) ? "right" : "left";
       }
     }
