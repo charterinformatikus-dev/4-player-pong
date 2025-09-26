@@ -29,13 +29,13 @@ const int deadzones[5] = {
   0,    // index 0 nincs használva
   200,  // 1: Bal
   400,  // 2: Jobb 
-  150,  // 3: Felső szintúgy jó
-  500   // 4: Alsó jó fa good
+  150,  // 3: Felső
+  500   // 4: Alsó
 };
 
-// Középértékek (fixen setup alatt számoljuk ki)
-int centerX = 2048;
-int centerY = 2048;
+// Középértékek (setup alatt számoljuk ki)
+int centerX = 0;
+int centerY = 0;
 
 // debug időzítés
 unsigned long lastDbg = 0;
@@ -197,13 +197,13 @@ void loop() {
     // --- Paddle-specifikus irány logika ---
     if (playerId == 1 || playerId == 2) {
       // BAL / JOBB → Y irány
-      if (absDY > dz || yVal <= 10 || yVal >= 4095) {
+      if (absDY > dz || yVal <= 10 || yVal >= 4085) {
         dir = (deltaY < 0) ? "up" : "down";
       }
     }
     else if (playerId == 3 || playerId == 4) {
       // FELSŐ / ALSÓ → X irány
-      if (absDX > dz || xVal <= 10 || xVal >= 4095) {
+      if (absDX > dz || xVal <= 10 || xVal >= 4085) {
         dir = (deltaX < 0) ? "right" : "left";
       }
     }
