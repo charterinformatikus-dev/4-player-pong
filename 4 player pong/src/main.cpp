@@ -29,7 +29,7 @@ const int deadzones[5] = {
   0,    // index 0 nincs használva
   200,  // 1: Bal
   400,  // 2: Jobb 
-  150,  // 3: Felső
+  170,  // 3: Felső
   500   // 4: Alsó
 };
 
@@ -129,6 +129,7 @@ void setup() {
     delay(200);
     Serial.print(".");
   }
+  WiFi.setSleep(false);
   Serial.println("\nWiFi ok");
 
   // MAC cím
