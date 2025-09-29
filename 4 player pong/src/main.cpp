@@ -15,10 +15,12 @@ const int pinY = 2;
 const int joySwitchPin = 4;   // gomb
 const int soundPin = 5;
 
-// LED villogtatás (GPIO 15)
+// LED villogás időzítők
 const int ledPin = 15;
 unsigned long lastBlink = 0;
-const unsigned long BLINK_INTERVAL = 5000; // 5 másodperc
+const unsigned long BLINK_PERIOD = 1000;   // 1 sec
+const unsigned long BLINK_ON_TIME = 100;   // 0.1 sec
+bool ledActive = false;
 
 String lastDir = "stop";
 bool joined = false;
@@ -28,9 +30,9 @@ bool wantJoin = false;
 const int deadzones[5] = {
   0,    // index 0 nincs használva
   200,  // 1: Bal
-  400,  // 2: Jobb 
+  200,  // 2: Jobb 
   180,  // 3: Felső
-  28   // 4: Alsó
+  150   // 4: Alsó
 };
 
 // Középértékek (setup alatt számoljuk ki)
@@ -48,7 +50,7 @@ const unsigned long SEND_INTERVAL = 33; // ~30Hz
 // stop figyelés
 unsigned long stopStart = 0;
 bool returnedToAI = false;
-const unsigned long STOP_TIMEOUT = 20000;
+const unsigned long STOP_TIMEOUT = 10000;
 
 // hang vezérlés
 bool toneActive = false;
@@ -165,6 +167,33 @@ void setup() {
   Serial.printf("Fix közép: X:%d Y:%d (átlag %d minta)\n", centerX, centerY, N);
 }
 
+// --- Irány átlagolás buffer ---
+const int SAMPLE_COUNT = 10;
+String dirBuffer[SAMPLE_COUNT];
+int sampleIndex = 0;
+
+String getAveragedDir() {
+  // megszámolja a bufferben az irányokat
+  int cntStop = 0, cntUp = 0, cntDown = 0, cntLeft = 0, cntRight = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    if (dirBuffer[i] == "stop") cntStop++;
+    else if (dirBuffer[i] == "up") cntUp++;
+    else if (dirBuffer[i] == "down") cntDown++;
+    else if (dirBuffer[i] == "left") cntLeft++;
+    else if (dirBuffer[i] == "right") cntRight++;
+  }
+
+  // kiválasztja a legtöbbször előforduló irányt
+  String bestDir = "stop";
+  int maxCnt = cntStop;
+  if (cntUp > maxCnt) { bestDir = "up"; maxCnt = cntUp; }
+  if (cntDown > maxCnt) { bestDir = "down"; maxCnt = cntDown; }
+  if (cntLeft > maxCnt) { bestDir = "left"; maxCnt = cntLeft; }
+  if (cntRight > maxCnt) { bestDir = "right"; maxCnt = cntRight; }
+
+  return bestDir;
+}
+
 void loop() {
   webSocket.loop();
   handleTone();
@@ -176,10 +205,19 @@ void loop() {
     delay(200); // debounce
   }
 
-  unsigned long blinkNow = millis();
-  if (blinkNow - lastBlink >= BLINK_INTERVAL) {
-    lastBlink = blinkNow;
-    digitalWrite(ledPin, !digitalRead(ledPin)); // váltogatja az állapotot
+  unsigned long now = millis();
+
+  // új villogás indítása
+  if (!ledActive && (now - lastBlink >= BLINK_PERIOD)) {
+    digitalWrite(ledPin, HIGH);
+    ledActive = true;
+    lastBlink = now;
+  }
+
+  // ha épp villog, akkor 0.1 sec után lekapcsol
+  if (ledActive && (now - lastBlink >= BLINK_ON_TIME)) {
+    digitalWrite(ledPin, LOW);
+    ledActive = false;
   }
 
   if (joined && playerId != 0) {
@@ -192,53 +230,59 @@ void loop() {
     int absDY = abs(deltaY);
 
     String dir = "stop";
-
     int dz = deadzones[playerId];
 
     // --- Paddle-specifikus irány logika ---
     if (playerId == 1 || playerId == 2) {
-      // BAL / JOBB → Y irány
       if (absDY > dz) {
         dir = (deltaY < 0) ? "up" : "down";
       }
     }
     else if (playerId == 3 || playerId == 4) {
-      // FELSŐ / ALSÓ → X irány
       if (absDX > dz) {
         dir = (deltaX < 0) ? "right" : "left";
       }
     }
 
-    unsigned long now = millis();
+    // --- irány hozzáadása a bufferhez ---
+    dirBuffer[sampleIndex] = dir;
+    sampleIndex++;
 
-    // stop figyelés AI visszaadásra
-    if (dir == "stop") {
-      if (stopStart == 0) stopStart = now;
-      if (!returnedToAI && (now - stopStart >= STOP_TIMEOUT)) {
-        sendReturnToAI();
-        returnedToAI = true;
+    if (sampleIndex >= SAMPLE_COUNT) {
+      sampleIndex = 0; // reset
+
+      // átlagolt irány
+      String avgDir = getAveragedDir();
+      unsigned long now = millis();
+
+      if (avgDir == "stop") {
+        if (stopStart == 0) stopStart = now;
+        if (!returnedToAI && (now - stopStart >= STOP_TIMEOUT)) {
+          sendReturnToAI();
+          returnedToAI = true;
+        } 
+      } else {
+          stopStart = 0;
+          returnedToAI = false;
       }
-    } else {
-      stopStart = 0;
-      returnedToAI = false;
-    }
 
-    if (dir != lastDir || now - lastSend >= SEND_INTERVAL) {
-      DynamicJsonDocument doc(64);
-      doc["dir"] = dir;
-      char buffer[64];
-      serializeJson(doc, buffer, sizeof(buffer));
-      webSocket.sendTXT(buffer);
-      lastDir = dir;
-      lastSend = now;
-    }
+      if (avgDir != lastDir || now - lastSend >= SEND_INTERVAL) {
+        DynamicJsonDocument doc(64);
+        doc["dir"] = avgDir;
+        char buffer[64];
+        serializeJson(doc, buffer, sizeof(buffer));
+        webSocket.sendTXT(buffer);
+        lastDir = avgDir;
+        lastSend = now;
+      }
 
-    // Debug
-    unsigned long nowDbg = millis();
-    if (nowDbg - lastDbg >= DBG_PERIOD_MS) {
-      Serial.printf("ID:%d | RAW X:%4d Y:%4d | dX:%4d dY:%4d | out:%s\n",
-        playerId, xVal, yVal, deltaX, deltaY, dir.c_str());
-      lastDbg = nowDbg;
+      // Debug kiírás
+      unsigned long nowDbg = millis();
+      if (nowDbg - lastDbg >= DBG_PERIOD_MS) {
+        Serial.printf("ID:%d | RAW X:%4d Y:%4d | dX:%4d dY:%4d | out(avg):%s\n",
+          playerId, xVal, yVal, deltaX, deltaY, avgDir.c_str());
+        lastDbg = nowDbg;
+      }
     }
   }
 }

@@ -1,0 +1,6 @@
+secenként villogjon 1 tizedmásodpercnyit a led
+nagyobb sarkok 
+mario zene
+dinamikus gyorsulás (pattogásonként gyorsabb)
+gyorsabb ütők
+időzítő egyik sarokban (5 perc pl) -> restart
