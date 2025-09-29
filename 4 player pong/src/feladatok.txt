@@ -1,6 +1,6 @@
 secenként villogjon 1 tizedmásodpercnyit a led done
 nagyobb sarkok done
 mario zene
-dinamikus gyorsulás (pattogásonként gyorsabb)
-gyorsabb ütők
-időzítő egyik sarokban (5 perc pl) -> restart
+dinamikus gyorsulás (pattogásonként gyorsabb) done(?)
+gyorsabb ütők done
+időzítő egyik sarokban (1 perc pl) -> restart done
