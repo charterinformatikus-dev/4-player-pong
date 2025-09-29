@@ -19,7 +19,7 @@ const int soundPin = 5;
 const int ledPin = 15;
 unsigned long lastBlink = 0;
 const unsigned long BLINK_PERIOD = 1000;   // 1 sec
-const unsigned long BLINK_ON_TIME = 100;   // 0.1 sec
+const unsigned long BLINK_ON_TIME = 10;   //
 bool ledActive = false;
 
 String lastDir = "stop";
