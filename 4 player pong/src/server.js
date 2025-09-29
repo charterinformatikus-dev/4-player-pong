@@ -23,7 +23,7 @@ const PADDLE_THICK_RATIO = 0.05;
 const PADDLE_OFFSET = 30;
 const BALL_R = 20;
 const AI_DEADZONE = 20;
-const MAX_BALL_SPEED = 18;
+const MAX_BALL_SPEED = 24;
 
 function computePaddles() {
   const base = Math.min(FIELD_W, FIELD_H);
@@ -53,8 +53,8 @@ function resetBall() {
 }
 
 function resetBallVelocity() {
-  ball.vx = (Math.random() > 0.5 ? 1 : -1) * (6 + Math.random()*2);
-  ball.vy = (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random()*2);
+  ball.vx = (Math.random() > 0.5 ? 1 : -1) * (8 + Math.random()*2);
+  ball.vy = (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random()*2);
 }
 
 function resetGame() {
@@ -124,7 +124,7 @@ setInterval(() => {
   }
 
   const { PADDLE_H, PADDLE_W, PADDLE_THICKNESS } = computePaddles();
-  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.02));
+  const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.03));
   const cornerLimit = 120;
 
   for (let i=1;i<=4;i++) {
@@ -205,24 +205,26 @@ setInterval(() => {
 
   // --- ütközések paddlékkel pontosítva (prevX/prevY-vel) ---
  // Left paddle
-if (ball.x - BALL_R <= leftPaddleX + PADDLE_THICKNESS &&
+  if (ball.x - BALL_R <= leftPaddleX + PADDLE_THICKNESS &&
     ball.x + BALL_R >= leftPaddleX &&
     ball.y + BALL_R >= players[1].y &&
     ball.y - BALL_R <= players[1].y + PADDLE_H) {
   if (ball.vx < 0) {
-    // balról jött
     ball.x = leftPaddleX + PADDLE_THICKNESS + BALL_R;
     ball.vx = Math.abs(ball.vx);
   } else {
-    // hátulról jött (jobbról)
     ball.x = leftPaddleX - BALL_R;
     ball.vx = -Math.abs(ball.vx);
   }
-  if (players[1].vy) { ball.vy += players[1].vy * 0.5; clampBallSpeed(); }
+
+  // Gyorsulás minden pattanásnál
+  ball.vx *= 1.05;
+  ball.vy *= 1.05;
+  clampBallSpeed();
+
   sendToId(1, JSON.stringify({ type: "hit" }));
   lastHit = 1;
 }
-
 
 // Right paddle
 if (ball.x + BALL_R >= rightPaddleX &&
@@ -238,7 +240,11 @@ if (ball.x + BALL_R >= rightPaddleX &&
     ball.x = rightPaddleX + PADDLE_THICKNESS + BALL_R;
     ball.vx = Math.abs(ball.vx);
   }
-  if (players[2].vy) { ball.vy += players[2].vy * 0.5; clampBallSpeed(); }
+
+  ball.vx *= 1.05;
+  ball.vy *= 1.05;
+  clampBallSpeed();
+
   sendToId(2, JSON.stringify({ type: "hit" }));
   lastHit = 2;
 }
@@ -256,7 +262,11 @@ if (ball.y - BALL_R <= topPaddleY + PADDLE_THICKNESS &&
     ball.y = topPaddleY - BALL_R;
     ball.vy = -Math.abs(ball.vy);
   }
-  if (players[3].vx) { ball.vx += players[3].vx * 0.5; clampBallSpeed(); }
+  
+  ball.vx *= 1.05;
+  ball.vy *= 1.05;
+  clampBallSpeed();
+
   sendToId(3, JSON.stringify({ type: "hit" }));
   lastHit = 3;
 }
@@ -275,7 +285,11 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     ball.y = bottomPaddleY + PADDLE_THICKNESS + BALL_R;
     ball.vy = Math.abs(ball.vy);
   }
-  if (players[4].vx) { ball.vx += players[4].vx * 0.5; clampBallSpeed(); }
+
+  ball.vx *= 1.05;
+  ball.vy *= 1.05;
+  clampBallSpeed();
+
   sendToId(4, JSON.stringify({ type: "hit" }));
   lastHit = 4;
 }
@@ -312,56 +326,76 @@ if (ball.y + BALL_R >= bottomPaddleY &&
   if (ball.x - BALL_R < cornerThickness && ball.y - BALL_R < cornerThickness) {
     if (ball.x < cornerThickness) ball.vx = Math.abs(ball.vx);
     if (ball.y < cornerThickness) ball.vy = Math.abs(ball.vy);
+
+    ball.vx *= 1.05;
+    ball.vy *= 1.05;
+    clampBallSpeed();
   }
   // jobb felső
   if (ball.x + BALL_R > FIELD_W - cornerThickness && ball.y - BALL_R < cornerThickness) {
     if (ball.x > FIELD_W - cornerThickness) ball.vx = -Math.abs(ball.vx);
     if (ball.y < cornerThickness) ball.vy = Math.abs(ball.vy);
+
+    ball.vx *= 1.05;
+    ball.vy *= 1.05;
+    clampBallSpeed();
   }
   // bal alsó
   if (ball.x - BALL_R < cornerThickness && ball.y + BALL_R > FIELD_H - cornerThickness) {
     if (ball.x < cornerThickness) ball.vx = Math.abs(ball.vx);
     if (ball.y > FIELD_H - cornerThickness) ball.vy = -Math.abs(ball.vy);
+
+    ball.vx *= 1.05;
+    ball.vy *= 1.05;
+    clampBallSpeed();
   }
   // jobb alsó
   if (ball.x + BALL_R > FIELD_W - cornerThickness && ball.y + BALL_R > FIELD_H - cornerThickness) {
     if (ball.x > FIELD_W - cornerThickness) ball.vx = -Math.abs(ball.vx);
     if (ball.y > FIELD_H - cornerThickness) ball.vy = -Math.abs(ball.vy);
+
+    ball.vx *= 1.05;
+    ball.vy *= 1.05;
+    clampBallSpeed();
   }
 
   // pontszerzés
 
   if (ball.x < -BALL_R || ball.x > FIELD_W + BALL_R || ball.y < -BALL_R || ball.y > FIELD_H + BALL_R) {
-    // +1 annak aki utoljára ütötte
-    if (lastHit) {
-      scores[lastHit]++;
+  // melyik kapun ment ki (az áldozat)
+  let victim = null;
+  if (ball.x < -BALL_R) victim = 1;
+  else if (ball.x > FIELD_W + BALL_R) victim = 2;
+  else if (ball.y < -BALL_R) victim = 3;
+  else if (ball.y > FIELD_H + BALL_R) victim = 4;
 
-      if (scores[lastHit] >= 5) {
-        console.log(`Játékos ${lastHit} nyert!`);
-        broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
-        gamePaused = true;
-        setTimeout(() => {
-          scores = {1:0,2:0,3:0,4:0};
-          resetGame();
-          lastHit = null;
-          gamePaused = false;
-        }, 2000);
-      }
+  // Csak akkor módosítunk pontokat, ha van lastHit ÉS az nem a victim (tehát a játékos nem adhat/vehet pontot saját magától)
+  if (lastHit && victim != null && lastHit !== victim) {
+    // +1 annak, aki utoljára ütött
+    scores[lastHit] = (scores[lastHit] || 0) + 1;
+
+    // győzelem ellenőrzés
+    if (scores[lastHit] >= 5) {
+      console.log(`Játékos ${lastHit} nyert!`);
+      broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
+      gamePaused = true;
+      setTimeout(() => {
+        scores = {1:0,2:0,3:0,4:0};
+        resetGame();
+        lastHit = null;
+        gamePaused = false;
+      }, 2000);
     }
 
-  if (ball.x < -BALL_R) {         // bal kapu
-    scores[1] = Math.max(0, (scores[1] || 0) - 1);
-  } else if (ball.x > FIELD_W + BALL_R) { // jobb kapu
-    scores[2] = Math.max(0, (scores[2] || 0) - 1);
-  } else if (ball.y < -BALL_R) {  // felső kapu
-    scores[3] = Math.max(0, (scores[3] || 0) - 1);
-  } else if (ball.y > FIELD_H + BALL_R) { // alsó kapu
-    scores[4] = Math.max(0, (scores[4] || 0) - 1);
+    // -1 annak, akinek a kapuján áthaladt a labda
+    scores[victim] = (scores[victim] || 0) - 1;
   }
 
-    resetBall();
-    lastHit = null;
-  }
+  // ha nincs lastHit, vagy lastHit === victim, nem változik a pontszám
+
+  resetBall();
+  lastHit = null;
+}
 
   broadcastTo("display", JSON.stringify(buildState()));
 }, 1000/60);
