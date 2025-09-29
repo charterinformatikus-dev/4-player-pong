@@ -362,10 +362,19 @@ if (ball.y + BALL_R >= bottomPaddleY &&
   // pontszerzés
 
   if (ball.x < -BALL_R || ball.x > FIELD_W + BALL_R || ball.y < -BALL_R || ball.y > FIELD_H + BALL_R) {
-    // +1 annak aki utoljára ütötte
-    if (lastHit) {
-      scores[lastHit]++;
+  // melyik kapun ment ki (az áldozat)
+    let victim = null;
+    if (ball.x < -BALL_R) victim = 1;
+    else if (ball.x > FIELD_W + BALL_R) victim = 2;
+    else if (ball.y < -BALL_R) victim = 3;
+    else if (ball.y > FIELD_H + BALL_R) victim = 4;
 
+    // Csak akkor módosítunk pontokat, ha van lastHit ÉS az nem a victim (tehát a játékos nem adhat/vehet pontot saját magától)
+    if (lastHit && victim != null && lastHit !== victim) {
+      // +1 annak, aki utoljára ütött
+      scores[lastHit] = (scores[lastHit] || 0) + 1;
+
+      // győzelem ellenőrzés
       if (scores[lastHit] >= 5) {
         console.log(`Játékos ${lastHit} nyert!`);
         broadcastTo("display", JSON.stringify({ type: "winner", id: lastHit }));
@@ -377,17 +386,12 @@ if (ball.y + BALL_R >= bottomPaddleY &&
           gamePaused = false;
         }, 2000);
       }
+
+      // -1 annak, akinek a kapuján áthaladt a labda
+      scores[victim] = (scores[victim] || 0) - 1;
     }
 
-  if (ball.x < -BALL_R) {         // bal kapu
-    scores[1] = (scores[1] || 0) - 1;
-  } else if (ball.x > FIELD_W + BALL_R) { // jobb kapu
-    scores[2] = (scores[2] || 0) - 1;
-  } else if (ball.y < -BALL_R) {  // felső kapu
-    scores[3] = (scores[3] || 0) - 1;
-  } else if (ball.y > FIELD_H + BALL_R) { // alsó kapu
-    scores[4] = (scores[4] || 0) - 1;
-  }
+    // ha nincs lastHit, vagy lastHit === victim, nem változik a pontszám
 
     resetBall();
     lastHit = null;
