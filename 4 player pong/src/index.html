@@ -56,6 +56,8 @@
   <div id="status">
     WS: <span id="ws-state">csatlakozás...</span> |
     Idő: <span id="timer">60</span> mp
+    <label for="volume-slider" style="margin-left:12px; font-size:13px;">Zene:</label>
+    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5">
   </div>
 </header>
 </header>
@@ -75,6 +77,22 @@ let winnerMessage = null;
 let winnerTimeout = null;
 let restartMessage = null;
 let restartTimeout = null;
+
+// [hangfrekvencia, időtartam]
+const marioTheme = [
+  [659, 0.1], [659, 0.1], [0, 0.1], [659, 0.1], [0, 0.1], [523, 0.1], [659, 0.1], [0, 0.1], [784, 0.3]
+];
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let masterGain = audioCtx.createGain();
+masterGain.gain.value = 0.5; // alap hangerő
+masterGain.connect(audioCtx.destination);
+
+// hangerő slider
+const volumeSlider = document.getElementById('volume-slider');
+volumeSlider.addEventListener('input', (e) => {
+  masterGain.gain.value = parseFloat(e.target.value);
+});
 
 const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
 let scoreAnimations = {1:0,2:0,3:0,4:0}; // anim progresszió
@@ -248,10 +266,32 @@ draw();
 function updateWSState(s){ document.getElementById('ws-state').textContent=s; }
 
 // placeholder hangok
-function sfxPaddleHit(){ /* hang */ }
-function sfxStart(){ /* hang */ }
-function sfxScore(){ /* hang */ }
+function sfxPaddleHit(){ playMarioTheme(); }
+function sfxStart(){  playTone(523, 0.3); }
+function sfxScore(){ playTone(784, 0.4); }
 
+function playTone(freq, duration) {
+  const osc = audioCtx.createOscillator();
+  osc.type = 'square';  // 8-bit / retro hang
+  osc.frequency.value = freq;
+  osc.connect(masterGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playMarioTheme() {
+  let t = 0;
+  marioTheme.forEach(([freq, dur]) => {
+    setTimeout(() => { if(freq>0) playTone(freq, dur); }, t*1000);
+    t += dur;
+  });
+}
+
+document.body.addEventListener('click', () => {
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+});
 </script>
 </body>
 </html>
