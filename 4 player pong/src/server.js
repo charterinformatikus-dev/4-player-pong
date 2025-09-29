@@ -305,6 +305,30 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     ball.vy = -Math.abs(ball.vy);
   }
 
+    // sarokfal pattanás a 30px vastag L alakú falról
+  const cornerThickness = 30;  // ugyanaz mint a kliens lineWidth
+
+  // bal felső
+  if (ball.x - BALL_R < cornerThickness && ball.y - BALL_R < cornerThickness) {
+    if (ball.x < cornerThickness) ball.vx = Math.abs(ball.vx);
+    if (ball.y < cornerThickness) ball.vy = Math.abs(ball.vy);
+  }
+  // jobb felső
+  if (ball.x + BALL_R > FIELD_W - cornerThickness && ball.y - BALL_R < cornerThickness) {
+    if (ball.x > FIELD_W - cornerThickness) ball.vx = -Math.abs(ball.vx);
+    if (ball.y < cornerThickness) ball.vy = Math.abs(ball.vy);
+  }
+  // bal alsó
+  if (ball.x - BALL_R < cornerThickness && ball.y + BALL_R > FIELD_H - cornerThickness) {
+    if (ball.x < cornerThickness) ball.vx = Math.abs(ball.vx);
+    if (ball.y > FIELD_H - cornerThickness) ball.vy = -Math.abs(ball.vy);
+  }
+  // jobb alsó
+  if (ball.x + BALL_R > FIELD_W - cornerThickness && ball.y + BALL_R > FIELD_H - cornerThickness) {
+    if (ball.x > FIELD_W - cornerThickness) ball.vx = -Math.abs(ball.vx);
+    if (ball.y > FIELD_H - cornerThickness) ball.vy = -Math.abs(ball.vy);
+  }
+
   // pontszerzés
 
   if (ball.x < -BALL_R || ball.x > FIELD_W + BALL_R || ball.y < -BALL_R || ball.y > FIELD_H + BALL_R) {
