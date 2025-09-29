@@ -46,7 +46,10 @@
 <body>
 <header>
   <h1>4-játékos Pong</h1>
-  <div id="status">WS: <span id="ws-state">csatlakozás...</span></div>
+  <div id="status">
+    WS: <span id="ws-state">csatlakozás...</span> |
+    Idő: <span id="timer">60</span> mp
+  </div>
 </header>
 
 <div id="game-wrap">
@@ -111,6 +114,17 @@ function handleMessage(ev){
     winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
     if(winnerTimeout) clearTimeout(winnerTimeout);
     winnerTimeout = setTimeout(()=>{winnerMessage=null},3000);
+  }
+
+    // ⏳ új funkció: idő kijelzése
+  if(msg.type==="timer"){
+    document.getElementById('timer').textContent = msg.time;
+  }
+
+  // pontszám reset
+  if(msg.type==="resetScores"){
+    if(gameState) gameState.scores = {1:0,2:0,3:0,4:0};
+    sfxStart(); // hang resetnél
   }
 }
 

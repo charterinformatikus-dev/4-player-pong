@@ -45,6 +45,32 @@ let gamePaused = false;
 let aiEnabled = {1:true,2:true,3:true,4:true};
 let lastInputTime = {1:0,2:0,3:0,4:0};
 
+let gameTimer = 60; // másodpercek
+let timerInterval = null;
+
+function startGameTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+
+  gameTimer = 60;
+  timerInterval = setInterval(() => {
+    gameTimer--;
+
+    // ha lejárt az idő
+    if (gameTimer <= 0) {
+      console.log("Idő lejárt! Pontok resetelve.");
+      scores = {1:0,2:0,3:0,4:0}; 
+      broadcastTo("display", JSON.stringify({ type: "resetScores" }));
+
+      // újraindítjuk az időzítőt
+      gameTimer = 60;
+    }
+
+    // küldjük a maradék időt a kijelzőknek
+    broadcastTo("display", JSON.stringify({ type: "timer", time: gameTimer }));
+
+  }, 1000);
+}
+
 function resetBall() {
   ball.x = FIELD_W/2;
   ball.y = FIELD_H/2;
@@ -67,6 +93,7 @@ function resetGame() {
     4: { x: FIELD_W/2 - PADDLE_W/2, dir: 0, vx: 0 }
   };
   resetBall();
+  startGameTimer();
 }
 
 resetGame();
@@ -520,4 +547,5 @@ wss.on("connection", (ws, req) => {
   });
 });
 
+startGameTimer();
 server.listen(8080,"0.0.0.0",()=>console.log("HTTP+WS szerver fut: http://localhost:8080/"));
