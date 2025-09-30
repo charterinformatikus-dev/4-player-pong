@@ -22,6 +22,13 @@ const unsigned long BLINK_PERIOD = 1000;   // 1 sec
 const unsigned long BLINK_ON_TIME = 10;   //
 bool ledActive = false;
 
+// --- hang burst vezérlés ---
+const int MAX_BURST = 10;
+int burstFreqs[MAX_BURST];
+int burstCount = 0;
+int burstIndex = 0;
+unsigned long nextBurstTime = 0;
+
 String lastDir = "stop";
 bool joined = false;
 bool wantJoin = false;
@@ -29,7 +36,7 @@ bool wantJoin = false;
 // Deadzone (delta értékre, ADC 0..4095 skálán)
 const int deadzones[5] = {
   0,    // index 0 nincs használva
-  200,  // 1: Bal
+  100,  // 1: Bal
   150,  // 2: Jobb 
   180,  // 3: Felső
   50   // 4: Alsó
@@ -82,6 +89,25 @@ void sendJoin() {
   serializeJson(doc, buffer, sizeof(buffer));
   webSocket.sendTXT(buffer);
   Serial.printf("JOIN elküldve (id=%d)\n", playerId);
+}
+
+void startHitBurst() {
+  burstCount = 8; 
+  for (int i = 0; i < burstCount; i++) {
+    burstFreqs[i] = random(1000, 10001);  
+  }
+  burstIndex = 0;
+  nextBurstTime = millis(); // azonnal indul
+}
+
+void handleBurst() {
+  unsigned long now = millis();
+  if (burstIndex < burstCount && now >= nextBurstTime) {
+    int f = burstFreqs[burstIndex];
+    tone(soundPin, f, 40);          // nagyon rövid: 0.1 sec
+    nextBurstTime = now + 50;       // kis szünet a csipogások közt
+    burstIndex++;
+  }
 }
 
 void sendReturnToAI() {
@@ -197,6 +223,7 @@ String getAveragedDir() {
 void loop() {
   webSocket.loop();
   handleTone();
+  handleBurst();
 
   // Join gomb
   if (digitalRead(joySwitchPin) == LOW && !joined) {
@@ -305,7 +332,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
       if (!err) {
         const char* t = doc["type"] | "";
         if (strcmp(t, "hit") == 0) {
-          startTone(1000, 100);
+          startHitBurst();
         } else if (strcmp(t, "reset") == 0) {
           startTone(400, 300);
         } else if (strcmp(t, "joined") == 0) {
