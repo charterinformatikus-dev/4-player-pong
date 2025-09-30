@@ -57,23 +57,29 @@ function startGameTimer() {
     if (gamePaused) return;
     gameTimer--;
 
-    // ha lejárt az idő
-    if (gameTimer <= 0) {
-      console.log("Idő lejárt! Pontok resetelve.");
-      scores = {1:0,2:0,3:0,4:0};
+// ha lejárt az idő
+if (gameTimer <= 0) {
+  console.log("⏰ Idő lejárt!");
 
-      gamePaused = true;
+  gamePaused = true;
 
-      // üzenet a klienseknek: nullázd a pontokat és jelenítsd meg a restart feliratot
-      broadcastTo("display", JSON.stringify({ type: "resetScores" }));
+  // Győztes meghatározása (legtöbb pont)
+  const winnerId = Object.keys(scores).reduce((a,b) => scores[a] >= scores[b] ? a : b);
+  console.log(`Idő lejárt - Győztes: Játékos ${winnerId}`);
 
-      // 3 másodperc várakozás
-      setTimeout(() => {
-        gameTimer = MAX_GAME_TIMER;
-        gamePaused = false;
-        resetGame();
-      }, 3000);
-    }
+  // Eredménytábla megjelenítése a klienseken
+  broadcastTo("display", JSON.stringify({ type: "winner", id: winnerId }));
+
+  // 10 mp scoreboard, aztán reset
+  setTimeout(() => {
+    scores = {1:0,2:0,3:0,4:0};
+    broadcastTo("display", JSON.stringify({ type: "resetScores" }));
+    gameTimer = MAX_GAME_TIMER;
+    gamePaused = false;
+    resetGame();
+  }, 10000);
+}
+
 
 
     // küldjük a maradék időt a kijelzőknek
