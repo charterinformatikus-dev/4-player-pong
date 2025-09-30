@@ -73,7 +73,6 @@ const ctx = canvas.getContext('2d');
 let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
 let socket = null;
 let gameState = null;
-let winnerMessage = null;
 let winnerTimeout = null;
 let restartMessage = null;
 let restartTimeout = null;
@@ -142,11 +141,10 @@ function handleMessage(ev){
   if(msg.type==="winner"){
     sfxScore();
     const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-    winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
-
     scoreboardVisible = true;
     if (scoreboardTimeout) clearTimeout(scoreboardTimeout);
-    scoreboardTimeout = setTimeout(() => { scoreboardVisible = false; winnerMessage = null }, 10000);
+
+    scoreboardTimeout = setTimeout(() => { scoreboardVisible = false; }, 10000);
   }
 
   // ⏳ új funkció: idő kijelzése
@@ -168,7 +166,7 @@ function handleMessage(ev){
 function drawScoreboard(){
   if(!scoreboardVisible || !gameState?.scores) return;
   ctx.fillStyle = "rgba(0,0,0,0.8)";
-  ctx.fillRect(canvas.width/2 - 250, canvas.height/2 - 200, 500, 400);
+  ctx.fillRect(canvas.width/2 - 250, canvas.height/2 - 200, 500, 500);
 
   ctx.font = "bold 36px sans-serif";
   ctx.textAlign = "center";
@@ -186,7 +184,7 @@ function drawScoreboard(){
   const winnerId = Object.keys(gameState.scores).reduce((a,b)=> gameState.scores[a]>gameState.scores[b]?a:b);
   ctx.fillStyle = colors[winnerId];
   ctx.font = "bold 40px sans-serif";
-  ctx.fillText(`${names[winnerId]} játékos nyert!`, canvas.width/2, canvas.height/2 + 160);
+  ctx.fillText(`${names[winnerId]} játékos nyert!`, canvas.width/2, canvas.height/2 + 220);
 }
 
 
@@ -272,13 +270,6 @@ function draw(){
   // pontok animációval
   drawScores(GOAL_MARGIN);
 
-  // nyertes felirat
-  if(winnerMessage){
-    ctx.fillStyle="yellow";
-    ctx.font="48px sans-serif";
-    ctx.textAlign="center";
-    ctx.fillText(winnerMessage,canvas.width/2,canvas.height/2);
-  }
 
   if(restartMessage){
     ctx.fillStyle="lime";

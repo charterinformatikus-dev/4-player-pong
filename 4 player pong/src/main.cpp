@@ -38,7 +38,7 @@ const int deadzones[5] = {
   0,    // index 0 nincs használva
   100,  // 1: Bal
   150,  // 2: Jobb 
-  180,  // 3: Felső
+  100,  // 3: Felső
   50   // 4: Alsó
 };
 
@@ -62,6 +62,10 @@ const unsigned long STOP_TIMEOUT = 10000;
 // hang vezérlés
 bool toneActive = false;
 unsigned long toneEndTime = 0;
+
+//return to ai gomb nyomással
+unsigned long lastReturnPress = 0;
+const unsigned long RETURN_COOLDOWN = 5000; // 5 másodperc
 
 // --- MAC → ID hozzárendelés ---
 int getPlayerIdFromMac(String mac) {
@@ -226,11 +230,23 @@ void loop() {
   handleBurst();
 
   // Join gomb
-  if (digitalRead(joySwitchPin) == LOW && !joined) {
+  if (digitalRead(joySwitchPin) == LOW) {
+  unsigned long now = millis();
+  
+  if (!joined) {
+    // még nincs join → belépés
     wantJoin = true;
     sendJoin();
     delay(200); // debounce
+  } else {
+    // már joined → return_to_ai, cooldown védelemmel
+    if (now - lastReturnPress >= RETURN_COOLDOWN) {
+      sendReturnToAI();
+      lastReturnPress = now;
+      delay(200); // debounce
+    }
   }
+}
 
   unsigned long now = millis();
 
