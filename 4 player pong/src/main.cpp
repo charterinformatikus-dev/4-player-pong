@@ -37,8 +37,8 @@ bool wantJoin = false;
 const int deadzones[5] = {
   0,    // index 0 nincs használva
   100,  // 1: Bal
-  150,  // 2: Jobb 
-  100,  // 3: Felső
+  100,  // 2: Jobb 
+  80,  // 3: Felső
   50   // 4: Alsó
 };
 
@@ -66,6 +66,12 @@ unsigned long toneEndTime = 0;
 //return to ai gomb nyomással
 unsigned long lastReturnPress = 0;
 const unsigned long RETURN_COOLDOWN = 5000; // 5 másodperc
+
+// gomb debounce / edge detection (nem blokkoló)
+const unsigned long DEBOUNCE_MS = 50;
+int lastRawButtonState = HIGH;      // INPUT_PULLUP -> idle HIGH
+int stableButtonState = HIGH;
+unsigned long lastDebounceTime = 0;
 
 // --- MAC → ID hozzárendelés ---
 int getPlayerIdFromMac(String mac) {
@@ -229,26 +235,40 @@ void loop() {
   handleTone();
   handleBurst();
 
-  // Join gomb
-  if (digitalRead(joySwitchPin) == LOW) {
+  // olvassuk a jelenlegi időt egyszer
   unsigned long now = millis();
-  
-  if (!joined) {
-    // még nincs join → belépés
-    wantJoin = true;
-    sendJoin();
-    delay(200); // debounce
-  } else {
-    // már joined → return_to_ai, cooldown védelemmel
-    if (now - lastReturnPress >= RETURN_COOLDOWN) {
-      sendReturnToAI();
-      lastReturnPress = now;
-      delay(200); // debounce
+
+  // --- Gomb kezelése: debounced edge-detection (nem blokkol) ---
+  int rawBtn = digitalRead(joySwitchPin);
+  if (rawBtn != lastRawButtonState) {
+    // állapotváltozás történt --> indítsuk a debounce időzítőt
+    lastDebounceTime = now;
+    lastRawButtonState = rawBtn;
+  }
+
+  // ha az állapot stabil több mint DEBOUNCE_MS, tekintsük érvényesnek
+  if (now - lastDebounceTime > DEBOUNCE_MS) {
+    if (rawBtn != stableButtonState) {
+      // stabil állapotváltás történt
+      stableButtonState = rawBtn;
+
+      // csak a lenyomás eseményre reagálunk (HIGH -> LOW)
+      if (stableButtonState == LOW) {
+        if (!joined) {
+          // még nincs join → belépés
+          wantJoin = true;
+          sendJoin();
+        } else {
+          // már joined → return_to_ai, cooldown védelemmel
+          if (now - lastReturnPress >= RETURN_COOLDOWN) {
+            lastReturnPress = now;   // AZONNAL rögzítjük a nyomást -> spam megelőzve
+            sendReturnToAI();
+            startTone(900, 80); // opcionális visszajelzés
+          }
+        }
+      }
     }
   }
-}
-
-  unsigned long now = millis();
 
   // új villogás indítása
   if (!ledActive && (now - lastBlink >= BLINK_PERIOD)) {
@@ -296,11 +316,11 @@ void loop() {
 
       // átlagolt irány
       String avgDir = getAveragedDir();
-      unsigned long now = millis();
+      unsigned long nowInner = millis();
 
       if (avgDir == "stop") {
-        if (stopStart == 0) stopStart = now;
-        if (!returnedToAI && (now - stopStart >= STOP_TIMEOUT)) {
+        if (stopStart == 0) stopStart = nowInner;
+        if (!returnedToAI && (nowInner - stopStart >= STOP_TIMEOUT)) {
           sendReturnToAI();
           returnedToAI = true;
         } 
@@ -309,14 +329,14 @@ void loop() {
           returnedToAI = false;
       }
 
-      if (avgDir != lastDir || now - lastSend >= SEND_INTERVAL) {
+      if (avgDir != lastDir || nowInner - lastSend >= SEND_INTERVAL) {
         DynamicJsonDocument doc(64);
         doc["dir"] = avgDir;
         char buffer[64];
         serializeJson(doc, buffer, sizeof(buffer));
         webSocket.sendTXT(buffer);
         lastDir = avgDir;
-        lastSend = now;
+        lastSend = nowInner;
       }
 
       // Debug kiírás
