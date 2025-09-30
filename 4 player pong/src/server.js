@@ -49,6 +49,7 @@ let gameTimer = 60; // másodpercek
 let timerInterval = null;
 
 function startGameTimer() {
+  if (gamePaused) return;
   if (timerInterval) clearInterval(timerInterval);
 
   gameTimer = 60;
@@ -59,10 +60,16 @@ function startGameTimer() {
     if (gameTimer <= 0) {
       console.log("Idő lejárt! Pontok resetelve.");
       scores = {1:0,2:0,3:0,4:0}; 
+
+      // játék megállása és felirat egyszerre
+      gamePaused = true;
       broadcastTo("display", JSON.stringify({ type: "resetScores" }));
 
-      // újraindítjuk az időzítőt
-      gameTimer = 60;
+      // 3 másodperc múlva újraindul a játék és eltűnik a felirat
+      setTimeout(() => {
+        gameTimer = 60;
+        gamePaused = false;
+      }, 3000);
     }
 
     // küldjük a maradék időt a kijelzőknek
