@@ -60,19 +60,21 @@ function startGameTimer() {
     // ha lejárt az idő
     if (gameTimer <= 0) {
       console.log("Idő lejárt! Pontok resetelve.");
-      scores = {1:0,2:0,3:0,4:0}; 
+      scores = {1:0,2:0,3:0,4:0};
 
-      // játék megállása és felirat egyszerre
       gamePaused = true;
+
+      // üzenet a klienseknek: nullázd a pontokat és jelenítsd meg a restart feliratot
       broadcastTo("display", JSON.stringify({ type: "resetScores" }));
 
-      // 3 másodperc múlva újraindul a játék és eltűnik a felirat
+      // 3 másodperc várakozás
       setTimeout(() => {
         gameTimer = MAX_GAME_TIMER;
         gamePaused = false;
         resetGame();
       }, 3000);
     }
+
 
     // küldjük a maradék időt a kijelzőknek
     broadcastTo("display", JSON.stringify({ type: "timer", time: gameTimer }));
