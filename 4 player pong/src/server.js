@@ -427,7 +427,7 @@ if (ball.y + BALL_R >= bottomPaddleY &&
           resetGame();
           lastHit = null;
           gamePaused = false;
-        }, 2000);
+        }, 10000);
       }
 
       // -1 annak, akinek a kapuján áthaladt a labda

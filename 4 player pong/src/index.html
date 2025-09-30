@@ -77,7 +77,8 @@ let winnerMessage = null;
 let winnerTimeout = null;
 let restartMessage = null;
 let restartTimeout = null;
-
+let scoreboardVisible = false;
+let scoreboardTimeout = null;
 // [hangfrekvencia, időtartam]
 const marioTheme = [
   [659, 0.1], [659, 0.1], [0, 0.1], [659, 0.1], [0, 0.1], [523, 0.1], [659, 0.1], [0, 0.1], [784, 0.3]
@@ -142,8 +143,10 @@ function handleMessage(ev){
     sfxScore();
     const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
     winnerMessage = `${winnerNames[msg.id]} játékos nyert!`;
-    if(winnerTimeout) clearTimeout(winnerTimeout);
-    winnerTimeout = setTimeout(()=>{winnerMessage=null},3000);
+
+    scoreboardVisible = true;
+    if (scoreboardTimeout) clearTimeout(scoreboardTimeout);
+    scoreboardTimeout = setTimeout(() => { scoreboardVisible = false; winnerMessage = null }, 10000);
   }
 
   // ⏳ új funkció: idő kijelzése
@@ -161,6 +164,31 @@ function handleMessage(ev){
     restartTimeout = setTimeout(() => { restartMessage = null; }, 3000);
   }
 }
+
+function drawScoreboard(){
+  if(!scoreboardVisible || !gameState?.scores) return;
+  ctx.fillStyle = "rgba(0,0,0,0.8)";
+  ctx.fillRect(canvas.width/2 - 250, canvas.height/2 - 200, 500, 400);
+
+  ctx.font = "bold 36px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "white";
+  ctx.fillText("EREDMÉNYTÁBLA", canvas.width/2, canvas.height/2 - 120);
+
+  const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
+  let i = 0;
+  for (let id of [3,2,4,1]) { // sorrend: felső, jobb, alsó, bal
+    ctx.fillStyle = colors[id];
+    ctx.fillText(`${names[id]}: ${gameState.scores[id]}`, canvas.width/2, canvas.height/2 - 40 + i*60);
+    i++;
+  }
+
+  const winnerId = Object.keys(gameState.scores).reduce((a,b)=> gameState.scores[a]>gameState.scores[b]?a:b);
+  ctx.fillStyle = colors[winnerId];
+  ctx.font = "bold 40px sans-serif";
+  ctx.fillText(`${names[winnerId]} játékos nyert!`, canvas.width/2, canvas.height/2 + 160);
+}
+
 
 function drawScores(GOAL_MARGIN){
   if(!gameState?.scores) return;
@@ -258,7 +286,7 @@ function draw(){
     ctx.textAlign="center";
     ctx.fillText(restartMessage, canvas.width/2, canvas.height/2 + 80);
   }
-
+  drawScoreboard();
   requestAnimationFrame(draw);
 }
 
