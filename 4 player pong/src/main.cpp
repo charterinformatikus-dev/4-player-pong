@@ -37,9 +37,9 @@ bool wantJoin = false;
 const int deadzones[5] = {
   0,    // index 0 nincs használva
   100,  // 1: Bal
-  100,  // 2: Jobb 
+  50,  // 2: Jobb 
   80,  // 3: Felső
-  50   // 4: Alsó
+  30   // 4: Alsó
 };
 
 // Középértékek (setup alatt számoljuk ki)
