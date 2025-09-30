@@ -57,7 +57,7 @@ const unsigned long SEND_INTERVAL = 33; // ~30Hz
 // stop figyelés
 unsigned long stopStart = 0;
 bool returnedToAI = false;
-const unsigned long STOP_TIMEOUT = 10000;
+const unsigned long STOP_TIMEOUT = 17000;
 
 // hang vezérlés
 bool toneActive = false;
