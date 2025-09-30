@@ -91,7 +91,9 @@ masterGain.connect(audioCtx.destination);
 // hangerő slider
 const volumeSlider = document.getElementById('volume-slider');
 volumeSlider.addEventListener('input', (e) => {
-  masterGain.gain.value = parseFloat(e.target.value);
+  let val = parseFloat(e.target.value); // 0…1
+  let gainValue = val === 0 ? 0 : Math.pow(val, 2); // 0.0–1.0
+  masterGain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
 });
 
 const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};

@@ -104,8 +104,8 @@ void handleBurst() {
   unsigned long now = millis();
   if (burstIndex < burstCount && now >= nextBurstTime) {
     int f = burstFreqs[burstIndex];
-    tone(soundPin, f, 40);          // nagyon rövid: 0.1 sec
-    nextBurstTime = now + 50;       // kis szünet a csipogások közt
+    tone(soundPin, f, 15);          // nagyon rövid: 0.1 sec
+    nextBurstTime = now + 25;       // kis szünet a csipogások közt
     burstIndex++;
   }
 }
@@ -159,7 +159,7 @@ void setup() {
   }
   WiFi.setSleep(false);
   Serial.println("\nWiFi ok");
-
+  
   // MAC cím
   String mac = WiFi.macAddress();
   Serial.print("Eszköz MAC: ");

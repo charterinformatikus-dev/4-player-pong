@@ -69,6 +69,7 @@ function startGameTimer() {
       setTimeout(() => {
         gameTimer = 60;
         gamePaused = false;
+        resetGame();
       }, 3000);
     }
 
@@ -101,6 +102,7 @@ function resetGame() {
   };
   resetBall();
   startGameTimer();
+  broadcastTo("display", JSON.stringify({ type: "reset" }));
 }
 
 resetGame();
@@ -257,6 +259,7 @@ setInterval(() => {
   clampBallSpeed();
 
   sendToId(1, JSON.stringify({ type: "hit" }));
+  broadcastTo("display", JSON.stringify({ type: "hit" }));
   lastHit = 1;
 }
 
@@ -280,6 +283,7 @@ if (ball.x + BALL_R >= rightPaddleX &&
   clampBallSpeed();
 
   sendToId(2, JSON.stringify({ type: "hit" }));
+  broadcastTo("display", JSON.stringify({ type: "hit" }));
   lastHit = 2;
 }
 // Top paddle
@@ -302,6 +306,7 @@ if (ball.y - BALL_R <= topPaddleY + PADDLE_THICKNESS &&
   clampBallSpeed();
 
   sendToId(3, JSON.stringify({ type: "hit" }));
+  broadcastTo("display", JSON.stringify({ type: "hit" }));
   lastHit = 3;
 }
 
@@ -325,6 +330,7 @@ if (ball.y + BALL_R >= bottomPaddleY &&
   clampBallSpeed();
 
   sendToId(4, JSON.stringify({ type: "hit" }));
+  broadcastTo("display", JSON.stringify({ type: "hit" }));
   lastHit = 4;
 }
   // sarokfal pattanás (most cornerSize-ot használva)
