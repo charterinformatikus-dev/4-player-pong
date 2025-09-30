@@ -54,10 +54,11 @@ function startGameTimer() {
 
   gameTimer = MAX_GAME_TIMER;
   timerInterval = setInterval(() => {
+    if (gamePaused) return;
     gameTimer--;
 
     // ha lejárt az idő
-    if (gameTimer <= 0 && !gamePaused) {
+    if (gameTimer <= 0) {
       console.log("Idő lejárt! Pontok resetelve.");
       scores = {1:0,2:0,3:0,4:0}; 
 
