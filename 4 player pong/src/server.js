@@ -49,7 +49,7 @@ let gameTimer = 60; // másodpercek
 let timerInterval = null;
 
 function startGameTimer() {
-  if (gamePaused) return;
+  if (gamePaused || gameTimer <= -1) return;
   if (timerInterval) clearInterval(timerInterval);
 
   gameTimer = 60;
