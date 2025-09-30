@@ -45,19 +45,19 @@ let gamePaused = false;
 let aiEnabled = {1:true,2:true,3:true,4:true};
 let lastInputTime = {1:0,2:0,3:0,4:0};
 
-let gameTimer = 60; // másodpercek
+const MAX_GAME_TIMER = 120;
+let gameTimer = MAX_GAME_TIMER; // másodpercek
 let timerInterval = null;
 
 function startGameTimer() {
-  if (gamePaused || gameTimer <= -1) return;
   if (timerInterval) clearInterval(timerInterval);
 
-  gameTimer = 60;
+  gameTimer = MAX_GAME_TIMER;
   timerInterval = setInterval(() => {
     gameTimer--;
 
     // ha lejárt az idő
-    if (gameTimer <= 0) {
+    if (gameTimer <= 0 && !gamePaused) {
       console.log("Idő lejárt! Pontok resetelve.");
       scores = {1:0,2:0,3:0,4:0}; 
 
@@ -67,7 +67,7 @@ function startGameTimer() {
 
       // 3 másodperc múlva újraindul a játék és eltűnik a felirat
       setTimeout(() => {
-        gameTimer = 60;
+        gameTimer = MAX_GAME_TIMER;
         gamePaused = false;
         resetGame();
       }, 3000);
