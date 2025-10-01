@@ -25,7 +25,7 @@
     z-index:10;
   }
   header h1 { font-size:16px; margin:0; }
-  #status { margin-left:auto; font-size:13px; opacity:.9; }
+  #status { font-size:13px; opacity:.9; display:flex; align-items:center; gap:8px; }
   #game-wrap {
     flex:1;
     display:flex;
@@ -42,15 +42,28 @@
     object-fit:contain;
   }
   #timer {
-  font-size: 32px;
-  font-weight: bold;
-  color: #ff4444;
-  margin-left: 10px;
+    font-size: 32px;
+    font-weight: bold;
+    color: #ff4444;
+    margin-left: 10px;
+  }
+  #restartBtn {
+    margin-left: auto;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    background: #ff4444;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #restartBtn:hover {
+    background: #cc0000;
   }
 </style>
 </head>
 <body>
-<header>
 <header>
   <h1>4-játékos Pong</h1>
   <div id="status">
@@ -59,7 +72,7 @@
     <label for="volume-slider" style="margin-left:12px; font-size:13px;">Zene:</label>
     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5">
   </div>
-</header>
+  <button id="restartBtn">Restart Server</button>
 </header>
 
 <div id="game-wrap">
@@ -140,23 +153,16 @@ function handleMessage(ev){
   if(msg.type==="reset") sfxStart();
   if(msg.type==="winner"){
     sfxScore();
-    const winnerNames = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
     scoreboardVisible = true;
     if (scoreboardTimeout) clearTimeout(scoreboardTimeout);
-
     scoreboardTimeout = setTimeout(() => { scoreboardVisible = false; }, 10000);
   }
-
-  // ⏳ új funkció: idő kijelzése
   if(msg.type==="timer"){
     document.getElementById('timer').textContent = msg.time;
   }
-
-  // pontszám reset
   if(msg.type==="resetScores"){
     if(gameState) gameState.scores = {1:0,2:0,3:0,4:0};
-    sfxStart(); // hang resetnél
-
+    sfxStart();
     restartMessage = "Újraindult a játék!";
     if(restartTimeout) clearTimeout(restartTimeout);
     restartTimeout = setTimeout(() => { restartMessage = null; }, 3000);
@@ -175,7 +181,7 @@ function drawScoreboard(){
 
   const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
   let i = 0;
-  for (let id of [3,2,4,1]) { // sorrend: felső, jobb, alsó, bal
+  for (let id of [3,2,4,1]) {
     ctx.fillStyle = colors[id];
     ctx.fillText(`${names[id]}: ${gameState.scores[id]}`, canvas.width/2, canvas.height/2 - 40 + i*60);
     i++;
@@ -187,7 +193,6 @@ function drawScoreboard(){
   ctx.fillText(`${names[winnerId]} játékos nyert!`, canvas.width/2, canvas.height/2 + 220);
 }
 
-
 function drawScores(GOAL_MARGIN){
   if(!gameState?.scores) return;
   ctx.fillStyle="white";
@@ -195,8 +200,8 @@ function drawScores(GOAL_MARGIN){
   for(let i=1;i<=4;i++){
     let scale = 1;
     if(scoreAnimations[i]>0){
-      scale = 1 + 1.5 * scoreAnimations[i];  // sokkal nagyobb
-      scoreAnimations[i]-=0.03;               // lassabb csökkenés
+      scale = 1 + 1.5 * scoreAnimations[i];
+      scoreAnimations[i]-=0.03;
       if(scoreAnimations[i]<0) scoreAnimations[i]=0;
     }
     let x,y;
@@ -232,7 +237,6 @@ function draw(){
   ctx.strokeStyle="#fff";
   ctx.lineWidth=30;
 
-  // sarkok
   [[0,0],[canvas.width,0],[0,canvas.height],[canvas.width,canvas.height]].forEach((c,i)=>{
     ctx.beginPath();
     if(i===0){ctx.moveTo(0,0); ctx.lineTo(cornerSize,0); ctx.moveTo(0,0); ctx.lineTo(0,cornerSize);}
@@ -242,7 +246,6 @@ function draw(){
     ctx.stroke();
   });
 
-  // paddlek + AI felirat
   const paddles = [
     {x:GOAL_MARGIN,y:p1y,w:PADDLE_THICK,h:PADDLE_H,role:1},
     {x:canvas.width-GOAL_MARGIN-PADDLE_THICK,y:p2y,w:PADDLE_THICK,h:PADDLE_H,role:2},
@@ -255,21 +258,18 @@ function draw(){
     ctx.fillRect(p.x,p.y,p.w,p.h);
     if(gameState?.roles?.[p.role]==="AI"){
       ctx.fillStyle="#000";
-      ctx.font="40px bold sans-serif"; // dupla méret
+      ctx.font="40px bold sans-serif";
       ctx.textAlign="center";
       ctx.fillText("AI",p.x+p.w/2,p.y+p.h/2+6);
     }
   });
 
-  // labda
   ctx.fillStyle="white";
   ctx.beginPath();
   ctx.arc(bx,by,20,0,Math.PI*2);
   ctx.fill();
 
-  // pontok animációval
   drawScores(GOAL_MARGIN);
-
 
   if(restartMessage){
     ctx.fillStyle="lime";
@@ -285,14 +285,13 @@ draw();
 
 function updateWSState(s){ document.getElementById('ws-state').textContent=s; }
 
-// placeholder hangok
 function sfxPaddleHit(){ playMarioTheme(); }
 function sfxStart(){  playTone(523, 0.3); }
 function sfxScore(){ playTone(784, 0.4); }
 
 function playTone(freq, duration) {
   const osc = audioCtx.createOscillator();
-  osc.type = 'square';  // 8-bit / retro hang
+  osc.type = 'square';
   osc.frequency.value = freq;
   osc.connect(masterGain);
   osc.start();
@@ -312,17 +311,20 @@ document.body.addEventListener('click', () => {
     audioCtx.resume();
   }
 });
-</script>
-<button id="restartBtn">Restart Server</button>
-<script>
-  document.getElementById("restartBtn").addEventListener("click", () => {
-    fetch("http://raspberrypi.local:3000/restart", { method: "POST" })
-      .then(r => r.text())
-      .then(msg => alert(msg))
-      .catch(err => alert("Error: " + err));
-  });
-</script>
-</body>
 
+document.getElementById("restartBtn").addEventListener("click", () => {
+  fetch("http://raspberrypi.local:3000/restart", { method: "POST" })
+    .then(r => r.text())
+    .then(msg => {
+      alert(msg + "\nA szerver 10 másodperc múlva újraindul.\nAz oldal frissítve lesz.");
+      setTimeout(() => {
+        location.reload(true); // ugyanaz, mint F5
+      }, 10000); // vár 10 másodpercet
+    })
+    .catch(err => alert("Error: " + err));
+});
+
+
+</script>
 </body>
 </html>
