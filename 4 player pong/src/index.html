@@ -313,5 +313,16 @@ document.body.addEventListener('click', () => {
   }
 });
 </script>
+<button id="restartBtn">Restart Server</button>
+<script>
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    fetch("http://raspberrypi.local:3000/restart", { method: "POST" })
+      .then(r => r.text())
+      .then(msg => alert(msg))
+      .catch(err => alert("Error: " + err));
+  });
+</script>
+</body>
+
 </body>
 </html>

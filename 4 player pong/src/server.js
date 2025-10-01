@@ -1,16 +1,38 @@
 // server.js
 // 4-játékos Pong – paddlek beljebb + AI deadzone + paddle velocity transfer + falpattanás a saroknál
 // javítva: paddlek nem mennek be az L alakú sarkok alá (cornerLimit figyelembevétel)
-
 const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
 const url = require("url");
+const { exec } = require("child_process");
 
+// ================== ADMIN API ==================
+const adminApp = express();
+const ADMIN_PORT = 3000; // admin API külön porton fut
+
+adminApp.post("/restart", (req, res) => {
+  console.log("Restart requested...");
+  exec("bash /home/admin/4playerpong/restart.sh", (err, stdout, stderr) => {
+    if (err) {
+      console.error("Error restarting:", stderr);
+      return res.status(500).send("Restart failed");
+    }
+    console.log(stdout);
+    res.send("Servers restarted");
+  });
+});
+
+adminApp.listen(ADMIN_PORT, () =>
+  console.log(`Admin API listening on port ${ADMIN_PORT}`)
+);
+
+// ================== JÁTÉK SERVER ==================
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: "/4playerpong" });
 
+app.use(express.static(__dirname));
 app.use(express.static(__dirname));
 
 // alap értékek
