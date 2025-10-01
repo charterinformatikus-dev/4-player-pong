@@ -79,7 +79,7 @@ int getPlayerIdFromMac(String mac) {
   if (mac == "90:E5:B1:8E:49:70") return 1; // bal
   if (mac == "90:E5:B1:8E:C2:80") return 3; // felső
   if (mac == "90:E5:B1:8E:CF:B0") return 2; // jobb
-  if (mac == "90:E5:B1:8D:C0:D2") return 4; // alsó
+  if (mac == "90:E5:B1:8E:6B:50") return 4; // alsó
   return 0; // ismeretlen
 }
 
