@@ -285,7 +285,7 @@ draw();
 
 function updateWSState(s){ document.getElementById('ws-state').textContent=s; }
 
-function sfxPaddleHit(){ playTone(2000, 0.3); }
+function sfxPaddleHit(){ playTone(400, 0.3); }
 function sfxStart(){  playTone(523, 0.3); }
 function sfxScore(){ playTone(784, 0.4); }
 
@@ -306,6 +306,8 @@ function playMarioTheme() {
     t += dur;
   });
 }
+
+playMarioTheme();
 
 document.body.addEventListener('click', () => {
   if (audioCtx.state === 'suspended') {

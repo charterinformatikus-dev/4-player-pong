@@ -44,7 +44,7 @@ const PADDLE_SIZE_RATIO = 0.27;
 const PADDLE_THICK_RATIO = 0.05;
 const PADDLE_OFFSET = 30;
 const BALL_R = 20;
-const MAX_BALL_SPEED = 500;
+const MAX_BALL_SPEED = 150;
 const BALL_VELOCITY_SCALE = 1.2;
 
 function computePaddles() {
