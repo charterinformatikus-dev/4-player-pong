@@ -39,13 +39,13 @@ app.use(express.static(__dirname));
 let FIELD_W = 600;
 let FIELD_H = 400;
 
-// PADDLE beállítások
+// PADDLE meg BALL (I hate AI) beállítások
 const PADDLE_SIZE_RATIO = 0.27;
 const PADDLE_THICK_RATIO = 0.05;
 const PADDLE_OFFSET = 30;
 const BALL_R = 20;
-const AI_DEADZONE = 20;
-const MAX_BALL_SPEED = 24;
+const MAX_BALL_SPEED = 500;
+const BALL_VELOCITY_SCALE = 1.2;
 
 function computePaddles() {
   const base = Math.min(FIELD_W, FIELD_H);
@@ -139,51 +139,46 @@ function resetGame() {
 resetGame();
 
 // --- ÚJ: előrejelzés labda pályára ---
-function predictBallY(paddleX) {
-  let simX = ball.x, simY = ball.y;
-  let vx = ball.vx, vy = ball.vy;
+function predictBallY() {
+  let tempX = ball.x;
+  let tempY = ball.y;
+  let vx = ball.vx;
+  let vy = ball.vy;
 
-  while (true) {
-    simX += vx;
-    simY += vy;
+  // addig szimuláljuk, amíg a labda el nem éri bal vagy jobb oldalt
+  while (tempX > 0 && tempX < FIELD_W) {
+    tempX += vx;
+    tempY += vy;
 
-    // felső/alsó fal pattanás
-    if (simY - BALL_R <= 0) { simY = BALL_R; vy = Math.abs(vy); }
-    if (simY + BALL_R >= FIELD_H) { simY = FIELD_H - BALL_R; vy = -Math.abs(vy); }
-
-    // bal/jobb paddle vonal elérése
-    if (vx < 0 && simX - BALL_R <= paddleX) return simY;
-    if (vx > 0 && simX + BALL_R >= paddleX) return simY;
-
-    // biztonsági limit
-    if (simX < -100 || simX > FIELD_W+100) break;
+    // pattogás fentről/lentről
+    if (tempY <= 0 || tempY + BALL_R * 2 >= FIELD_H) {
+      vy = -vy;
+    }
   }
-  return FIELD_H/2; // fallback
+
+  return tempY + BALL_R; // középpont
 }
 
-function predictBallX(paddleY) {
-  let simX = ball.x, simY = ball.y;
-  let vx = ball.vx, vy = ball.vy;
+function predictBallX() {
+  let tempX = ball.x;
+  let tempY = ball.y;
+  let vx = ball.vx;
+  let vy = ball.vy;
 
-  while (true) {
-    simX += vx;
-    simY += vy;
+  // addig szimuláljuk, amíg a labda el nem éri a tetejét/alját
+  while (tempY > 0 && tempY < FIELD_H) {
+    tempX += vx;
+    tempY += vy;
 
-    // bal/jobb fal pattanás
-    if (simX - BALL_R <= 0) { simX = BALL_R; vx = Math.abs(vx); }
-    if (simX + BALL_R >= FIELD_W) { simX = FIELD_W - BALL_R; vx = -Math.abs(vx); }
-
-    // felső/alsó paddle vonal elérése
-    if (vy < 0 && simY - BALL_R <= paddleY) return simX;
-    if (vy > 0 && simY + BALL_R >= paddleY) return simX;
-
-    if (simY < -100 || simY > FIELD_H+100) break;
+    // pattogás balról/jobbról
+    if (tempX <= 0 || tempX + BALL_R * 2 >= FIELD_W) {
+      vx = -vx;
+    }
   }
-  return FIELD_W/2; // fallback
+
+  return tempX + BALL_R;
 }
 
-// --- ÚJ: AI döntés késleltetéssel ---
-let aiDecisionDelay = {1:0,2:0,3:0,4:0};
 setInterval(() => {
   if (gamePaused) {
     broadcastTo("display", JSON.stringify(buildState()));
@@ -194,42 +189,46 @@ setInterval(() => {
   const moveSpeed = Math.max(6, Math.floor(Math.min(FIELD_W, FIELD_H) * 0.03));
   const cornerLimit = 120;
 
-  for (let i=1;i<=4;i++) {
+  // szimpla AI
+  // --- AI vezérlés deadzone-nal ---
+  const AI_DEADZONE = 30;  // ennyin belül nem mozdul
+
+  for (let i = 1; i <= 4; i++) {
     if (aiEnabled[i]) {
-      if (!aiDecisionDelay[i]) aiDecisionDelay[i] = 0;
-      if (Date.now() >= aiDecisionDelay[i]) {
-        // lassabb reakció
-        aiDecisionDelay[i] = Date.now() + (200 + Math.random()*200); // 200–400ms
-
-        // kis esély hogy rosszat dönt (hibázás)
-        if (Math.random() < 0.15) {  // 15% hiba
-          players[i].dir = (Math.random() < 0.5) ? -1 : 1;
-          continue;
+      if (i === 1) { // bal paddle
+        let targetY = predictBallY();
+        let paddleCenter = players[1].y + PADDLE_H / 2;
+        if (Math.abs(targetY - paddleCenter) > AI_DEADZONE) {
+          players[1].dir = (targetY > paddleCenter) ? 1 : -1;
+        } else {
+          players[1].dir = 0;
         }
-
-        if (i === 1) { // bal
-          let target = predictBallY(PADDLE_OFFSET + PADDLE_THICKNESS) + (Math.random()*100 - 50); // ±50
-          let paddleCenter = players[i].y + PADDLE_H/2;
-          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
-                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
+      }
+      if (i === 2) { // jobb paddle
+        let targetY = predictBallY();
+        let paddleCenter = players[2].y + PADDLE_H / 2;
+        if (Math.abs(targetY - paddleCenter) > AI_DEADZONE) {
+          players[2].dir = (targetY > paddleCenter) ? 1 : -1;
+        } else {
+          players[2].dir = 0;
         }
-        if (i === 2) { // jobb
-          let target = predictBallY(FIELD_W - PADDLE_OFFSET - PADDLE_THICKNESS) + (Math.random()*100 - 50);
-          let paddleCenter = players[i].y + PADDLE_H/2;
-          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
-                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
-        }
-        if (i === 3) { // felső
-          let target = predictBallX(PADDLE_OFFSET + PADDLE_THICKNESS) + (Math.random()*100 - 50);
-          let paddleCenter = players[i].x + PADDLE_W/2;
-          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
-                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
-        }
-        if (i === 4) { // alsó
-          let target = predictBallX(FIELD_H - PADDLE_OFFSET - PADDLE_THICKNESS) + (Math.random()*100 - 50);
-          let paddleCenter = players[i].x + PADDLE_W/2;
-          players[i].dir = (target > paddleCenter+AI_DEADZONE*2) ? 1 :
-                          (target < paddleCenter-AI_DEADZONE*2) ? -1 : 0;
+      }
+      if (i === 3) { // felső paddle
+          let targetX = predictBallX();
+          let paddleCenter = players[3].x + PADDLE_W / 2;
+          if (Math.abs(targetX - paddleCenter) > AI_DEADZONE) {
+            players[3].dir = (targetX > paddleCenter) ? 1 : -1;
+          } else {
+            players[3].dir = 0;
+          }
+      }
+      if (i === 4) { // alsó paddle
+        let targetX = predictBallX();
+        let paddleCenter = players[4].x + PADDLE_W / 2;
+        if (Math.abs(targetX - paddleCenter) > AI_DEADZONE) {
+          players[4].dir = (targetX > paddleCenter) ? 1 : -1;
+        } else {
+          players[4].dir = 0;
         }
       }
     }
@@ -285,8 +284,8 @@ setInterval(() => {
   }
 
   // Gyorsulás minden pattanásnál
-  ball.vx *= 1.05;
-  ball.vy *= 1.05;
+  ball.vx *= BALL_VELOCITY_SCALE;
+  ball.vy *= BALL_VELOCITY_SCALE;
   clampBallSpeed();
 
   sendToId(1, JSON.stringify({ type: "hit" }));
@@ -309,8 +308,8 @@ if (ball.x + BALL_R >= rightPaddleX &&
     ball.vx = Math.abs(ball.vx);
   }
 
-  ball.vx *= 1.05;
-  ball.vy *= 1.05;
+  ball.vx *= BALL_VELOCITY_SCALE;
+  ball.vy *= BALL_VELOCITY_SCALE;
   clampBallSpeed();
 
   sendToId(2, JSON.stringify({ type: "hit" }));
@@ -332,8 +331,8 @@ if (ball.y - BALL_R <= topPaddleY + PADDLE_THICKNESS &&
     ball.vy = -Math.abs(ball.vy);
   }
   
-  ball.vx *= 1.05;
-  ball.vy *= 1.05;
+  ball.vx *= BALL_VELOCITY_SCALE;
+  ball.vy *= BALL_VELOCITY_SCALE;
   clampBallSpeed();
 
   sendToId(3, JSON.stringify({ type: "hit" }));
@@ -356,8 +355,8 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     ball.vy = Math.abs(ball.vy);
   }
 
-  ball.vx *= 1.05;
-  ball.vy *= 1.05;
+  ball.vx *= BALL_VELOCITY_SCALE;
+  ball.vy *= BALL_VELOCITY_SCALE;
   clampBallSpeed();
 
   sendToId(4, JSON.stringify({ type: "hit" }));
@@ -398,8 +397,8 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     if (ball.x < cornerThickness) ball.vx = Math.abs(ball.vx);
     if (ball.y < cornerThickness) ball.vy = Math.abs(ball.vy);
 
-    ball.vx *= 1.05;
-    ball.vy *= 1.05;
+    ball.vx *= BALL_VELOCITY_SCALE;
+    ball.vy *= BALL_VELOCITY_SCALE;
     clampBallSpeed();
   }
   // jobb felső
@@ -407,8 +406,8 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     if (ball.x > FIELD_W - cornerThickness) ball.vx = -Math.abs(ball.vx);
     if (ball.y < cornerThickness) ball.vy = Math.abs(ball.vy);
 
-    ball.vx *= 1.05;
-    ball.vy *= 1.05;
+    ball.vx *= BALL_VELOCITY_SCALE;
+    ball.vy *= BALL_VELOCITY_SCALE;
     clampBallSpeed();
   }
   // bal alsó
@@ -416,8 +415,8 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     if (ball.x < cornerThickness) ball.vx = Math.abs(ball.vx);
     if (ball.y > FIELD_H - cornerThickness) ball.vy = -Math.abs(ball.vy);
 
-    ball.vx *= 1.05;
-    ball.vy *= 1.05;
+    ball.vx *= BALL_VELOCITY_SCALE;
+    ball.vy *= BALL_VELOCITY_SCALE;
     clampBallSpeed();
   }
   // jobb alsó
@@ -425,8 +424,8 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     if (ball.x > FIELD_W - cornerThickness) ball.vx = -Math.abs(ball.vx);
     if (ball.y > FIELD_H - cornerThickness) ball.vy = -Math.abs(ball.vy);
 
-    ball.vx *= 1.05;
-    ball.vy *= 1.05;
+    ball.vx *= BALL_VELOCITY_SCALE;
+    ball.vy *= BALL_VELOCITY_SCALE;
     clampBallSpeed();
   }
 
