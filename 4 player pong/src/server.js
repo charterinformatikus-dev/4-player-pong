@@ -44,7 +44,7 @@ const PADDLE_SIZE_RATIO = 0.27;
 const PADDLE_THICK_RATIO = 0.05;
 const PADDLE_OFFSET = 30;
 const BALL_R = 20;
-const MAX_BALL_SPEED = 150;
+const MAX_BALL_SPEED = 30;
 const BALL_VELOCITY_SCALE = 1.2;
 
 function computePaddles() {
@@ -139,44 +139,65 @@ function resetGame() {
 resetGame();
 
 // --- ÚJ: előrejelzés labda pályára ---
-function predictBallY() {
+function predictBallY(targetSide) {
   let tempX = ball.x;
   let tempY = ball.y;
   let vx = ball.vx;
   let vy = ball.vy;
 
-  // addig szimuláljuk, amíg a labda el nem éri bal vagy jobb oldalt
-  while (tempX > 0 && tempX < FIELD_W) {
+  const leftPaddleX = PADDLE_OFFSET;
+  const rightPaddleX = FIELD_W - PADDLE_OFFSET;
+
+  for (let steps = 0; steps < 5000; steps++) {
     tempX += vx;
     tempY += vy;
 
-    // pattogás fentről/lentről
+    // felső/alsó fal pattanás
     if (tempY <= 0 || tempY + BALL_R * 2 >= FIELD_H) {
       vy = -vy;
     }
+
+    if (targetSide === "left" && vx < 0 && tempX - BALL_R <= leftPaddleX) {
+      return tempY + BALL_R;
+    }
+    if (targetSide === "right" && vx > 0 && tempX + BALL_R >= rightPaddleX) {
+      return tempY + BALL_R;
+    }
   }
 
-  return tempY + BALL_R; // középpont
+  // ha nem sikerült kiszámolni → fallback
+  return ball.y;
 }
 
-function predictBallX() {
+
+function predictBallX(targetSide) {
   let tempX = ball.x;
   let tempY = ball.y;
   let vx = ball.vx;
   let vy = ball.vy;
 
-  // addig szimuláljuk, amíg a labda el nem éri a tetejét/alját
-  while (tempY > 0 && tempY < FIELD_H) {
+  const topPaddleY = PADDLE_OFFSET;
+  const bottomPaddleY = FIELD_H - PADDLE_OFFSET;
+
+  for (let steps = 0; steps < 5000; steps++) {
     tempX += vx;
     tempY += vy;
 
-    // pattogás balról/jobbról
+    // bal/jobb fal pattanás
     if (tempX <= 0 || tempX + BALL_R * 2 >= FIELD_W) {
       vx = -vx;
     }
+
+    if (targetSide === "top" && vy < 0 && tempY - BALL_R <= topPaddleY) {
+      return tempX + BALL_R;
+    }
+    if (targetSide === "bottom" && vy > 0 && tempY + BALL_R >= bottomPaddleY) {
+      return tempX + BALL_R;
+    }
   }
 
-  return tempX + BALL_R;
+  // fallback
+  return ball.x;
 }
 
 setInterval(() => {
@@ -191,42 +212,49 @@ setInterval(() => {
 
   // szimpla AI
   // --- AI vezérlés deadzone-nal ---
-  const AI_DEADZONE = 30;  // ennyin belül nem mozdul
+  const AI_DEADZONE = 20;  // ennyin belül nem mozdul
 
   for (let i = 1; i <= 4; i++) {
     if (aiEnabled[i]) {
       if (i === 1) { // bal paddle
-        let targetY = predictBallY();
+        let targetY = predictBallY("left");
         let paddleCenter = players[1].y + PADDLE_H / 2;
-        if (Math.abs(targetY - paddleCenter) > AI_DEADZONE) {
-          players[1].dir = (targetY > paddleCenter) ? 1 : -1;
+        let diff = targetY - paddleCenter;
+        if (Math.abs(diff) > AI_DEADZONE) {
+          players[1].dir = diff > 0 ? 1 : -1;
         } else {
           players[1].dir = 0;
         }
       }
+
       if (i === 2) { // jobb paddle
-        let targetY = predictBallY();
+        let targetY = predictBallY("right");
         let paddleCenter = players[2].y + PADDLE_H / 2;
-        if (Math.abs(targetY - paddleCenter) > AI_DEADZONE) {
-          players[2].dir = (targetY > paddleCenter) ? 1 : -1;
+        let diff = targetY - paddleCenter;
+        if (Math.abs(diff) > AI_DEADZONE) {
+          players[2].dir = diff > 0 ? 1 : -1;
         } else {
           players[2].dir = 0;
         }
       }
+
       if (i === 3) { // felső paddle
-          let targetX = predictBallX();
-          let paddleCenter = players[3].x + PADDLE_W / 2;
-          if (Math.abs(targetX - paddleCenter) > AI_DEADZONE) {
-            players[3].dir = (targetX > paddleCenter) ? 1 : -1;
-          } else {
-            players[3].dir = 0;
-          }
+        let targetX = predictBallX("top");
+        let paddleCenter = players[3].x + PADDLE_W / 2;
+        let diff = targetX - paddleCenter;
+        if (Math.abs(diff) > AI_DEADZONE) {
+          players[3].dir = diff > 0 ? 1 : -1;
+        } else {
+          players[3].dir = 0;
+        }
       }
+
       if (i === 4) { // alsó paddle
-        let targetX = predictBallX();
+        let targetX = predictBallX("bottom");
         let paddleCenter = players[4].x + PADDLE_W / 2;
-        if (Math.abs(targetX - paddleCenter) > AI_DEADZONE) {
-          players[4].dir = (targetX > paddleCenter) ? 1 : -1;
+        let diff = targetX - paddleCenter;
+        if (Math.abs(diff) > AI_DEADZONE) {
+          players[4].dir = diff > 0 ? 1 : -1;
         } else {
           players[4].dir = 0;
         }
