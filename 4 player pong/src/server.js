@@ -495,6 +495,27 @@ if (ball.y + BALL_R >= bottomPaddleY &&
     lastHit = null;
   }
 
+
+  // 1.4: PowerUp collision check
+  for(let i=powerUps.length-1;i>=0;i--){
+    const pu = powerUps[i];
+    const dx = ball.x - pu.x;
+    const dy = ball.y - pu.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < BALL_R + POWERUP_RADIUS){
+      if(lastHit){ // csak akkor van hatás, ha valaki utoljára megütötte
+        applyPowerUp(lastHit, pu.type);
+      }
+      powerUps.splice(i,1);
+      broadcastTo("display", JSON.stringify({ type:"removePowerUp", id: pu.id }));
+    } else {
+      if(Date.now()-pu.spawnTime > POWERUP_LIFETIME){
+        powerUps.splice(i,1);
+        broadcastTo("display", JSON.stringify({ type:"removePowerUp", id: pu.id }));
+      }
+    }
+  }
+
   broadcastTo("display", JSON.stringify(buildState()));
 }, 1000/60);
 
@@ -503,6 +524,58 @@ function clampBallSpeed() {
   ball.vy = Math.max(-MAX_BALL_SPEED, Math.min(MAX_BALL_SPEED, ball.vy));
 }
 
+// 1.3: PowerUp spawn és alkalmazás
+function spawnPowerUp(){
+  const type = POWERUP_TYPES[Math.floor(Math.random()*POWERUP_TYPES.length)];
+  const pu = {
+    id: Date.now()+"_"+Math.floor(Math.random()*1000),
+    x: Math.random()*(FIELD_W-100)+50,
+    y: Math.random()*(FIELD_H-100)+50,
+    type,
+    spawnTime: Date.now()
+  };
+  powerUps.push(pu);
+  broadcastTo("display", JSON.stringify({ type:"spawnPowerUp", powerUp: pu }));
+}
+
+function applyPowerUp(playerId, type){
+  console.log(`Player ${playerId} kapott: ${type}`);
+  broadcastTo("display", JSON.stringify({ type:"powerUpActivated", player: playerId, power: type }));
+
+  switch(type){
+    case "paddleSpeed+":
+      activeEffects[playerId].push({effect:"speed",mult:1.5,expires:Date.now()+5000});
+      break;
+    case "paddleSpeed-":
+      activeEffects[playerId].push({effect:"speed",mult:0.5,expires:Date.now()+5000});
+      break;
+    case "paddleSize+":
+      activeEffects[playerId].push({effect:"size",mult:1.5,expires:Date.now()+8000});
+      break;
+    case "paddleSize-":
+      activeEffects[playerId].push({effect:"size",mult:0.6,expires:Date.now()+8000});
+      break;
+    case "ballSpeed+":
+      ball.vx*=1.3; ball.vy*=1.3; clampBallSpeed(); break;
+    case "ballSpeed-":
+      ball.vx*=0.7; ball.vy*=0.7; break;
+    case "invert":
+      activeEffects[playerId].push({effect:"invert",expires:Date.now()+6000});
+      break;
+    case "wickedBall":
+      activeEffects[playerId].push({effect:"wicked",bounces:4});
+      break;
+    case "absoluteGoal":
+      activeEffects[playerId].push({effect:"absoluteGoal",bounces:1});
+      break;
+    case "fireBall":
+      activeEffects[playerId].push({effect:"fireBall",expires:Date.now()+8000});
+      break;
+    case "tripleBall":
+      // majd itt kell szaporítani a labdát
+      break;
+  }
+}
 function buildState() {
   const paddleInfo = computePaddles();
   return {
@@ -618,5 +691,26 @@ wss.on("connection", (ws, req) => {
   });
 });
 
+// POWER UP rendszer
+let powerUps = [];
+const POWERUP_RADIUS = 15;
+const POWERUP_LIFETIME = 8000; // ms
+const POWERUP_SPAWN_INTERVAL = 10000; // ms
+
+const POWERUP_TYPES = [
+  "paddleSpeed+","paddleSpeed-",
+  "paddleSize+","paddleSize-",
+  "ballSpeed+","ballSpeed-",
+  "invert","wickedBall","absoluteGoal",
+  "fireBall","tripleBall"
+];
+
+// aktív effektek játékosonként
+let activeEffects = {1:[],2:[],3:[],4:[]};
+setInterval(() => {
+  if (!gamePaused) {
+    spawnPowerUp();
+  }
+}, POWERUP_SPAWN_INTERVAL);
 startGameTimer();
 server.listen(8080,"0.0.0.0",()=>console.log("HTTP+WS szerver fut: http://localhost:8080/"));
