@@ -187,7 +187,72 @@ function handleMessage(ev){
     delete powerUps[msg.id];
   }
   if(msg.type==="powerUpActivated"){
-    console.log(`Player ${msg.player} kapott: ${msg.power}`);
+      console.log(`Player ${msg.player} kapott: ${msg.power}`);
+      applyPowerUp(msg.player, msg.power);
+  }
+}
+
+function applyPowerUp(player, power) {
+  if (!gameState) return;
+
+  switch(power) {
+    case "paddleSize+":
+      if (player <= 2) { // vertikális paddlek
+        gameState.paddles.PADDLE_H *= 1.3;
+      } else {
+        gameState.paddles.PADDLE_W *= 1.3;
+      }
+      break;
+
+    case "paddleSize-":
+      if (player <= 2) {
+        gameState.paddles.PADDLE_H *= 0.7;
+      } else {
+        gameState.paddles.PADDLE_W *= 0.7;
+      }
+      break;
+
+    case "paddleSpeed+":
+      gameState.players[player].speedBoost = 1.5;
+      setTimeout(()=> gameState.players[player].speedBoost = 1, 8000);
+      break;
+
+    case "paddleSpeed-":
+      gameState.players[player].speedBoost = 0.5;
+      setTimeout(()=> gameState.players[player].speedBoost = 1, 8000);
+      break;
+
+    case "ballSpeed+":
+      gameState.ball.vx *= 1.5;
+      gameState.ball.vy *= 1.5;
+      break;
+
+    case "ballSpeed-":
+      gameState.ball.vx *= 0.7;
+      gameState.ball.vy *= 0.7;
+      break;
+
+    case "invert":
+      // játékos irányítását fordítsuk meg
+      gameState.players[player].inverted = true;
+      setTimeout(()=> gameState.players[player].inverted = false, 8000);
+      break;
+
+    case "fireBall":
+      gameState.ball.fire = true;
+      setTimeout(()=> gameState.ball.fire = false, 5000);
+      break;
+
+    case "tripleBall":
+      // egyszerű vizuális placeholder
+      gameState.extraBalls = 2;
+      setTimeout(()=> gameState.extraBalls = 0, 8000);
+      break;
+
+    case "wickedBall":
+      gameState.ball.wicked = true;
+      setTimeout(()=> gameState.ball.wicked = false, 8000);
+      break;
   }
 }
 

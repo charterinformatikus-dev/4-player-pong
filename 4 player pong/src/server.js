@@ -70,6 +70,7 @@ let lastInputTime = {1:0,2:0,3:0,4:0};
 const MAX_GAME_TIMER = 120;
 let gameTimer = MAX_GAME_TIMER; // másodpercek
 let timerInterval = null;
+let balls = [ { x: FIELD_W/2, y: FIELD_H/2, vx: 8, vy: 5, fire: false, wicked: false, absolute: false, owner: null } ];
 
 function startGameTimer() {
   if (timerInterval) clearInterval(timerInterval);
@@ -538,44 +539,41 @@ function spawnPowerUp(){
   broadcastTo("display", JSON.stringify({ type:"spawnPowerUp", powerUp: pu }));
 }
 
-function applyPowerUp(playerId, type){
-  console.log(`Player ${playerId} kapott: ${type}`);
-  broadcastTo("display", JSON.stringify({ type:"powerUpActivated", player: playerId, power: type }));
-
-  switch(type){
-    case "paddleSpeed+":
-      activeEffects[playerId].push({effect:"speed",mult:1.5,expires:Date.now()+5000});
-      break;
-    case "paddleSpeed-":
-      activeEffects[playerId].push({effect:"speed",mult:0.5,expires:Date.now()+5000});
-      break;
-    case "paddleSize+":
-      activeEffects[playerId].push({effect:"size",mult:1.5,expires:Date.now()+8000});
-      break;
-    case "paddleSize-":
-      activeEffects[playerId].push({effect:"size",mult:0.6,expires:Date.now()+8000});
-      break;
-    case "ballSpeed+":
-      ball.vx*=1.3; ball.vy*=1.3; clampBallSpeed(); break;
-    case "ballSpeed-":
-      ball.vx*=0.7; ball.vy*=0.7; break;
-    case "invert":
-      activeEffects[playerId].push({effect:"invert",expires:Date.now()+6000});
-      break;
-    case "wickedBall":
-      activeEffects[playerId].push({effect:"wicked",bounces:4});
-      break;
-    case "absoluteGoal":
-      activeEffects[playerId].push({effect:"absoluteGoal",bounces:1});
-      break;
-    case "fireBall":
-      activeEffects[playerId].push({effect:"fireBall",expires:Date.now()+8000});
-      break;
+function applyPowerUp(player, power) {
+  switch(power) {
     case "tripleBall":
-      // majd itt kell szaporítani a labdát
+      if (balls.length === 1) {
+        let main = balls[0];
+        for (let i=0; i<2; i++) {
+          balls.push({
+            ...main,
+            vx: main.vx * (i % 2 ? 1 : -1), // kicsit más irányba
+            vy: main.vy * (i % 2 ? 1 : -1),
+            owner: player
+          });
+        }
+      }
+      break;
+
+    case "fireBall":
+      balls.forEach(b => { b.fire = true; b.owner = player; });
+      setTimeout(()=> balls.forEach(b => b.fire = false), 5000);
+      break;
+
+    case "wickedBall":
+      balls.forEach(b => { b.wicked = true; b.owner = player; });
+      setTimeout(()=> balls.forEach(b => b.wicked = false), 5000);
+      break;
+
+    case "absolute":
+      balls.forEach(b => { b.absolute = true; b.owner = player; });
+      setTimeout(()=> balls.forEach(b => b.absolute = false), 2000);
       break;
   }
 }
+
+
+
 function buildState() {
   const paddleInfo = computePaddles();
   return {
@@ -694,8 +692,9 @@ wss.on("connection", (ws, req) => {
 // POWER UP rendszer
 let powerUps = [];
 const POWERUP_RADIUS = 15;
-const POWERUP_LIFETIME = 8000; // ms
+const POWERUP_LIFETIME = 10000; // ms
 const POWERUP_SPAWN_INTERVAL = 10000; // ms
+let activeEffects = {};
 
 const POWERUP_TYPES = [
   "paddleSpeed+","paddleSpeed-",
@@ -706,11 +705,27 @@ const POWERUP_TYPES = [
 ];
 
 // aktív effektek játékosonként
-let activeEffects = {1:[],2:[],3:[],4:[]};
 setInterval(() => {
   if (!gamePaused) {
     spawnPowerUp();
   }
 }, POWERUP_SPAWN_INTERVAL);
+for (let b of balls) {
+  b.x += b.vx;
+  b.y += b.vy;
+
+  // ha wicked → véletlen csavar adjunk
+  if (b.wicked) {
+    b.vx += (Math.random() - 0.5) * 0.5;
+    b.vy += (Math.random() - 0.5) * 0.5;
+  }
+
+  // ha absolute → 1 pattanásig átmegy a paddleken
+  if (!b.absolute) {
+    // ide jön a paddle collision check
+    // ha fire → eltalált paddle "széttörik" = pl. 1 mp-re disable
+  }
+}
+
 startGameTimer();
 server.listen(8080,"0.0.0.0",()=>console.log("HTTP+WS szerver fut: http://localhost:8080/"));
