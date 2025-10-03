@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
+#include <Ticker.h>
 
 // ===== WIFI =====
 const char* ssid = "PONG_ROUTER";
@@ -17,10 +18,20 @@ const int soundPin = 5;
 
 // LED villogás időzítők
 const int ledPin = 15;
-unsigned long lastBlink = 0;
-const unsigned long BLINK_PERIOD = 1000;   // 1 sec
-const unsigned long BLINK_ON_TIME = 10;   //
-bool ledActive = false;
+Ticker ledTicker;
+Ticker ledOffTicker;
+const int BLINK_PERIOD = 1000;   // teljes periódus
+const int BLINK_ON_TIME = 10;   // 20-40 ms közt, itt 30ms
+bool ledState = false;
+
+void ledOn() {
+  digitalWrite(ledPin, HIGH);
+  // BLINK_ON_TIME múlva kikapcsoljuk
+  ledOffTicker.once_ms(BLINK_ON_TIME, []() {
+    digitalWrite(ledPin, LOW);
+  });
+}
+
 
 // --- hang burst vezérlés ---
 const int MAX_BURST = 10;
@@ -159,12 +170,13 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW);
 
+  ledTicker.attach_ms(BLINK_PERIOD, ledOn);
+
   tone(soundPin, 1500, 100);
   delay(120);
   tone(soundPin, 800, 120);
 
   // WiFi csatlakozás
-  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("WiFi: csatlakozás");
 
@@ -233,20 +245,9 @@ String getAveragedDir() {
 }
 
 void loop() {
-  // ===== mindig fusson, heartbeat =====
   unsigned long now = millis();
-  if (!ledActive && (now - lastBlink >= BLINK_PERIOD)) {
-    digitalWrite(ledPin, HIGH);
-    ledActive = true;
-    lastBlink = now;
-  }
 
-  if (ledActive && (now - lastBlink >= BLINK_ON_TIME)) {
-    digitalWrite(ledPin, LOW);
-    ledActive = false;
-  }
-
-   // WiFi check
+  // ===== WiFi check =====
   if (WiFi.status() != WL_CONNECTED) {
     if (now - lastWiFiAttempt >= WIFI_RETRY_INTERVAL) {
       Serial.println("Nincs WiFi, újracsatlakozás...");
@@ -254,11 +255,9 @@ void loop() {
       WiFi.begin(ssid, password);
       lastWiFiAttempt = now;
     }
-    return; // még nincs net → ne próbáljunk websockets-et
+  } else {
+    webSocket.loop(); 
   }
-
-
-  webSocket.loop();
   handleTone();
   handleBurst();
 
