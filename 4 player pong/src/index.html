@@ -83,7 +83,7 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-let wsUrl = "ws://raspberrypi.local:8080/4playerpong?type=display";
+let wsUrl = "ws://192.168.88.129:8080/4playerpong?type=display";
 let socket = null;
 let gameState = null;
 let restartCountdown = null;
@@ -92,6 +92,7 @@ let restartMessage = null;
 let restartTimeout = null;
 let scoreboardVisible = false;
 let scoreboardTimeout = null;
+let powerUps = {};
 // [hangfrekvencia, időtartam]
 const marioTheme = [
   [659, 0.1], [659, 0.1], [0, 0.1], [659, 0.1], [0, 0.1], [523, 0.1], [659, 0.1], [0, 0.1], [784, 0.3]
@@ -177,6 +178,17 @@ function handleMessage(ev){
     if(restartTimeout) clearTimeout(restartTimeout);
     restartTimeout = setTimeout(() => { restartMessage = null; }, 3000);
   }
+
+  // 2.2: PowerUp üzenetek kezelése
+  if(msg.type==="spawnPowerUp"){
+    powerUps[msg.powerUp.id]=msg.powerUp;
+  }
+  if(msg.type==="removePowerUp"){
+    delete powerUps[msg.id];
+  }
+  if(msg.type==="powerUpActivated"){
+    console.log(`Player ${msg.player} kapott: ${msg.power}`);
+  }
 }
 
 function drawScoreboard(){
@@ -202,6 +214,21 @@ function drawScoreboard(){
   ctx.font = "bold 40px sans-serif";
   ctx.fillText(`${names[winnerId]} játékos nyert!`, canvas.width/2, canvas.height/2 + 220);
 }
+
+function drawPowerUps(){
+  for(const id in powerUps){
+    const pu = powerUps[id];
+    ctx.fillStyle="orange";
+    ctx.beginPath();
+    ctx.arc(pu.x,pu.y,15,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle="black";
+    ctx.font="16px sans-serif";
+    ctx.textAlign="center";
+    ctx.fillText("?",pu.x,pu.y+5);
+  }
+}
+
 
 function drawScores(GOAL_MARGIN){
   if(!gameState?.scores) return;
@@ -285,6 +312,8 @@ function draw(){
   ctx.arc(bx,by,20,0,Math.PI*2);
   ctx.fill();
 
+  drawPowerUps();
+  
   drawScores(GOAL_MARGIN);
 
   if(restartMessage){
@@ -332,7 +361,7 @@ document.body.addEventListener('click', () => {
 });
 
 document.getElementById("restartBtn").addEventListener("click", () => {
-  fetch("http://raspberrypi.local:3000/restart", { method: "POST" })
+  fetch("http://192.168.88.129:3000/restart", { method: "POST" })
     .then(r => r.text())
     .then(msg => {
       alert(msg + "\nA szerver 10 másodperc múlva újraindul.\nAz oldal frissítve lesz.");
