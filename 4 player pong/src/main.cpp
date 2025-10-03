@@ -279,19 +279,6 @@ void loop() {
     }
   }
 
-  // új villogás indítása
-  if (!ledActive && (now - lastBlink >= BLINK_PERIOD)) {
-    digitalWrite(ledPin, HIGH);
-    ledActive = true;
-    lastBlink = now;
-  }
-
-  // ha épp villog, akkor 0.1 sec után lekapcsol
-  if (ledActive && (now - lastBlink >= BLINK_ON_TIME)) {
-    digitalWrite(ledPin, LOW);
-    ledActive = false;
-  }
-
   if (joined && playerId != 0) {
     int xVal = readFast(pinX);
     int yVal = readFast(pinY);
