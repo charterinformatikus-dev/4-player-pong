@@ -42,6 +42,9 @@ const int deadzones[5] = {
   30   // 4: Alsó
 };
 
+unsigned long lastWiFiAttempt = 0;
+const unsigned long WIFI_RETRY_INTERVAL = 5000; // 5 sec
+
 // Középértékek (setup alatt számoljuk ki)
 int centerX = 0;
 int centerY = 0;
@@ -161,12 +164,11 @@ void setup() {
   tone(soundPin, 800, 120);
 
   // WiFi csatlakozás
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("WiFi: csatlakozás");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
-    Serial.print(".");
-  }
+
+  Serial.println("WiFi próbálkozás indítva...");
   WiFi.setSleep(false);
   Serial.println("\nWiFi ok");
   
@@ -243,6 +245,19 @@ void loop() {
     digitalWrite(ledPin, LOW);
     ledActive = false;
   }
+
+   // WiFi check
+  if (WiFi.status() != WL_CONNECTED) {
+    if (now - lastWiFiAttempt >= WIFI_RETRY_INTERVAL) {
+      Serial.println("Nincs WiFi, újracsatlakozás...");
+      WiFi.disconnect();
+      WiFi.begin(ssid, password);
+      lastWiFiAttempt = now;
+    }
+    return; // még nincs net → ne próbáljunk websockets-et
+  }
+
+
   webSocket.loop();
   handleTone();
   handleBurst();
