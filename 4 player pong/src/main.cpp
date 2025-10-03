@@ -231,12 +231,21 @@ String getAveragedDir() {
 }
 
 void loop() {
+  // ===== mindig fusson, heartbeat =====
+  unsigned long now = millis();
+  if (!ledActive && (now - lastBlink >= BLINK_PERIOD)) {
+    digitalWrite(ledPin, HIGH);
+    ledActive = true;
+    lastBlink = now;
+  }
+
+  if (ledActive && (now - lastBlink >= BLINK_ON_TIME)) {
+    digitalWrite(ledPin, LOW);
+    ledActive = false;
+  }
   webSocket.loop();
   handleTone();
   handleBurst();
-
-  // olvassuk a jelenlegi időt egyszer
-  unsigned long now = millis();
 
   // --- Gomb kezelése: debounced edge-detection (nem blokkol) ---
   int rawBtn = digitalRead(joySwitchPin);
