@@ -16,13 +16,16 @@ void WifiHandler::init(const char* ssid, const char* password) {
     lastWiFiAttempt = millis();
 }
 
-void WifiHandler::update(unsigned long now) {
+//true ha connectelt a wifi :)
+bool WifiHandler::update(unsigned long now) {
     if (WiFi.status() != WL_CONNECTED) {
-    if (now - lastWiFiAttempt >= WIFI_RETRY_INTERVAL) {
-      Serial.println("⚠ Nincs WiFi, újracsatlakozás...");
-      WiFi.disconnect();
-      WiFi.begin(ssid, password);
-      lastWiFiAttempt = now;
+      if (now - lastWiFiAttempt >= WIFI_RETRY_INTERVAL) {
+        Serial.println("⚠ Nincs WiFi, újracsatlakozás...");
+        WiFi.disconnect();
+        WiFi.begin(ssid, password);
+        lastWiFiAttempt = now;
+      }
+      return false;
     }
-  }
+    return true;
 }
