@@ -728,4 +728,4 @@ for (let b of balls) {
 }
 
 startGameTimer();
-server.listen(8080,"0.0.0.0",()=>console.log("HTTP+WS szerver fut: http://localhost:8080/"));
+server.listen(8080,"0.0.0.0",()=>console.log("HTTP+WS szerver fut: http://192.168.88.41:8080/"));

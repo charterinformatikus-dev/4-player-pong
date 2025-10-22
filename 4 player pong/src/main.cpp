@@ -5,8 +5,8 @@
 #include <Ticker.h>
 
 // ===== WIFI =====
-const char* ssid = "PONG_ROUTER";
-const char* password = "charter2019";
+const char* ssid = "Charter Informatika 2019_";
+const char* password = "charter1";
 
 WebSocketsClient webSocket;
 
@@ -90,7 +90,7 @@ unsigned long lastDebounceTime = 0;
 // --- MAC → ID hozzárendelés ---
 int getPlayerIdFromMac(String mac) {
   mac.toUpperCase();
-  if (mac == "90:E5:B1:8E:49:70") return 1; // bal
+  if (mac == "90:E5:B1:8E:6E:92") return 1; // bal  90:E5:B1:8E:49:70 ez a régi
   if (mac == "90:E5:B1:8E:C2:80") return 3; // felső
   if (mac == "90:E5:B1:8E:CF:B0") return 2; // jobb
   if (mac == "90:E5:B1:8E:6B:50") return 4; // alsó
@@ -199,7 +199,7 @@ void setup() {
 
   // WebSocket
   String path = String("/4playerpong?type=esp&id=") + String(playerId);
-  webSocket.begin("raspberrypi.local", 8080, path.c_str());
+  webSocket.begin("192.168.88.41", 8080, path.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(3000);
 
