@@ -1,443 +1,115 @@
 <!doctype html>
 <html lang="hu">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4-játékos Pong</title>
-<style>
-  body {
-    margin:0;
-    font-family:system-ui,Segoe UI,Roboto;
-    background:#0b1220;
-    color:#dfe7ff;
-    display:flex;
-    flex-direction:column;
-    height:100vh;
-    overflow:hidden;
-  }
-  header {
-    padding:10px 16px;
-    display:flex;
-    gap:12px;
-    align-items:center;
-    background:#071025;
-    box-shadow:0 2px 6px rgba(0,0,0,.6);
-    z-index:10;
-  }
-  header h1 { font-size:16px; margin:0; }
-  #status { font-size:13px; opacity:.9; display:flex; align-items:center; gap:8px; }
-  #game-wrap {
-    flex:1;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-  }
-  canvas {
-    background:#0b2a3a;
-    border:6px solid #022539;
-    border-radius:8px;
-    width:100vw;
-    height:100vh;
-    object-fit:contain;
-  }
-  #timer {
-    font-size: 32px;
-    font-weight: bold;
-    color: #ff4444;
-    margin-left: 10px;
-  }
-  #restartBtn {
-    margin-left: auto;
-    padding: 6px 12px;
-    border: none;
-    border-radius: 6px;
-    background: #ff4444;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  #restartBtn:hover {
-    background: #cc0000;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Charter Informatika - Hub</title>
+  <style>
+    :root{
+      --bg:#0f1724; /* dark navy */
+      --card:#0b1220;
+      --accent:#06b6d4; /* cyan */
+      --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.04);
+      --glass-2: rgba(255,255,255,0.03);
+      --shadow: 0 6px 18px rgba(2,6,23,0.6);
+      --radius:14px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071027 0%, #071827 60%, var(--bg) 100%);color:#f8fafc}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:48px 20px;box-sizing:border-box}
+    .card{width:100%;max-width:980px;background:linear-gradient(180deg,var(--card), rgba(8,13,22,0.8));border-radius:18px;padding:36px;box-shadow:var(--shadow);backdrop-filter: blur(6px);border:1px solid rgba(255,255,255,0.03)}
+    header{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:22px}
+    h1{font-size:28px;margin:0;letter-spacing:0.6px}
+    p.lead{margin:0;color:var(--muted);font-size:14px}
+
+    /* grid of buttons */
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}
+    .tile{background:linear-gradient(180deg,var(--glass), var(--glass-2));border-radius:12px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:96px;cursor:pointer;text-decoration:none;color:inherit;border:1px solid rgba(255,255,255,0.03);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
+    .tile:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(2,6,23,0.6);border-color: rgba(6,182,212,0.14)}
+    .tile .title{font-weight:600;margin-top:8px}
+    .tile .desc{font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+
+    /* special first tile visual */
+    .tile.primary{background:linear-gradient(135deg, rgba(6,182,212,0.12), rgba(6,182,212,0.04));border:1px solid rgba(6,182,212,0.16)}
+    .tile .dot{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#036b75,#06b6d4);box-shadow:inset 0 -6px 18px rgba(2,6,23,0.25)}
+    .tile svg{filter:drop-shadow(0 6px 10px rgba(6,182,212,0.08));}
+
+    /* responsive */
+    @media (max-width:800px){
+      .grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media (max-width:480px){
+      h1{font-size:20px}
+      .grid{grid-template-columns:1fr}
+    }
+
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+  </style>
 </head>
 <body>
-<header>
-  <h1>4-játékos Pong</h1>
-  <div id="status">
-    WS: <span id="ws-state">csatlakozás...</span> |
-    Idő: <span id="timer">60</span> mp
-    <label for="volume-slider" style="margin-left:12px; font-size:13px;">Zene:</label>
-    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5">
+  <div class="wrap">
+    <main class="card">
+      <header>
+        <h1>Domaines cégnév insert ide majd idk</h1>
+        <p class="lead">Válassz játékot — kattints az egyik dobozra.</p>
+      </header>
+
+      <section class="grid" role="list">
+        <!-- 1: primary link to 4playerpong -->
+        <a class="tile primary" href="http://192.168.88.41:8080/4playerpong.html" role="listitem">
+          <div class="dot" aria-hidden>
+            <!-- simple gamepad icon -->
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 12c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v0c0 2.21-1.79 4-4 4H10c-2.21 0-4-1.79-4-4z" stroke="#fff" stroke-opacity="0.95" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="9" cy="11" r="0.9" fill="#fff"/>
+              <circle cx="15" cy="11" r="0.9" fill="#fff"/>
+            </svg>
+          </div>
+          <div class="title">4 Player Pong</div>
+          <div class="desc">Indítod a négyjátékos Pongot ha ide kattolsz.</div>
+        </a>
+
+        <!-- 2 -->
+        <a class="tile" href="#" role="listitem">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 6 .5-4.5 3.5L18 20l-6-3-6 3 1.5-7L3 8.5 9 8 12 2z" fill="rgba(255,255,255,0.06)"/></svg>
+          <div class="title">Üres</div>
+          <div class="desc">Üres</div>
+        </a>
+
+        <!-- 3 -->
+        <a class="tile" href="#" role="listitem">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v10H4z" stroke="rgba(255,255,255,0.08)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="title">Üres</div>
+          <div class="desc">Üres</div>
+        </a>
+
+        <!-- 4 -->
+        <a class="tile" href="#" role="listitem">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M3 12h18" stroke="rgba(255,255,255,0.08)" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <div class="title">Üres</div>
+          <div class="desc">Üres</div>
+        </a>
+
+        <!-- 5 -->
+        <a class="tile" href="#" role="listitem">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 3v18" stroke="rgba(255,255,255,0.08)" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <div class="title">Üres</div>
+          <div class="desc">Üres</div>
+        </a>
+
+        <!-- 6 -->
+        <a class="tile" href="#" role="listitem">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5v14" stroke="rgba(255,255,255,0.08)" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <div class="title">Üres</div>
+          <div class="desc">Üres</div>
+        </a>
+      </section>
+
+      <footer>
+        <small>© Charter Informatika • Valami hub — fejlesztés alatt</small>
+      </footer>
+    </main>
   </div>
-  <button id="restartBtn">Restart Server</button>
-</header>
-
-<div id="game-wrap">
-  <canvas id="game"></canvas>
-</div>
-
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-
-let wsUrl = "ws://192.168.88.41:8080/4playerpong?type=display";
-let socket = null;
-let gameState = null;
-let restartCountdown = null;
-let winnerTimeout = null;
-let restartMessage = null;
-let restartTimeout = null;
-let scoreboardVisible = false;
-let scoreboardTimeout = null;
-let powerUps = {};
-// [hangfrekvencia, időtartam]
-const marioTheme = [
-  [659, 0.1], [659, 0.1], [0, 0.1], [659, 0.1], [0, 0.1], [523, 0.1], [659, 0.1], [0, 0.1], [784, 0.3]
-];
-
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let masterGain = audioCtx.createGain();
-masterGain.gain.value = 0.5; // alap hangerő
-masterGain.connect(audioCtx.destination);
-
-// hangerő slider
-const volumeSlider = document.getElementById('volume-slider');
-volumeSlider.addEventListener('input', (e) => {
-  let val = parseFloat(e.target.value); // 0…1
-  let gainValue = val === 0 ? 0 : Math.pow(val, 2); // 0.0–1.0
-  masterGain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
-});
-
-const colors = {1:"#75e0ff", 2:"#ffd57a", 3:"#9effa3", 4:"#ff9ecb"};
-let scoreAnimations = {1:0,2:0,3:0,4:0}; // anim progresszió
-
-function resizeCanvas() {
-  const headerH = document.querySelector("header").offsetHeight;
-  canvas.width = Math.max(400, window.innerWidth);
-  canvas.height = Math.max(300, window.innerHeight - headerH - 10);
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "displaySize", width: canvas.width, height: canvas.height }));
-  }
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-function tryConnect() {
-  updateWSState('próbálkozás...');
-  socket = new WebSocket(wsUrl);
-  socket.onopen = () => {
-    updateWSState('csatlakozva');
-    socket.send(JSON.stringify({ type: "displaySize", width: canvas.width, height: canvas.height }));
-  };
-  socket.onerror = () => updateWSState('hiba');
-  socket.onclose = () => {
-    updateWSState('kapcsolat bontva, újracsatlakozás...');
-    setTimeout(() => location.reload(), 1200);
-  };
-  socket.onmessage = (ev) => handleMessage(ev);
-}
-tryConnect();
-
-function handleMessage(ev){
-  const msg = JSON.parse(ev.data);
-  if(msg.type==="state"){
-    if(gameState && msg.scores){
-      for(let i=1;i<=4;i++){
-        if(msg.scores[i]!==gameState.scores[i]) scoreAnimations[i]=1.0;
-      }
-    }
-    gameState = msg;
-  }
-  if(msg.type==="hit") sfxPaddleHit();
-  if(msg.type==="reset") sfxStart();
-  if(msg.type==="winner"){
-    sfxScore();
-    scoreboardVisible = true;
-    if (scoreboardTimeout) clearTimeout(scoreboardTimeout);
-    scoreboardTimeout = setTimeout(() => { scoreboardVisible = false; }, 10000);
-     // visszaszámláló indítása
-    restartCountdown = 10;
-    let countdownInterval = setInterval(() => {
-      restartCountdown--;
-      if (restartCountdown <= 0) {
-        clearInterval(countdownInterval);
-        restartCountdown = null;
-      }
-    }, 1000);
-  }
-  if(msg.type==="timer"){
-    document.getElementById('timer').textContent = msg.time;
-  }
-  if(msg.type==="resetScores"){
-    if(gameState) gameState.scores = {1:0,2:0,3:0,4:0};
-    sfxStart();
-    restartMessage = "Újraindult a játék!";
-    if(restartTimeout) clearTimeout(restartTimeout);
-    restartTimeout = setTimeout(() => { restartMessage = null; }, 3000);
-  }
-
-  // 2.2: PowerUp üzenetek kezelése
-  if(msg.type==="spawnPowerUp"){
-    powerUps[msg.powerUp.id]=msg.powerUp;
-  }
-  if(msg.type==="removePowerUp"){
-    delete powerUps[msg.id];
-  }
-  if(msg.type==="powerUpActivated"){
-      console.log(`Player ${msg.player} kapott: ${msg.power}`);
-      applyPowerUp(msg.player, msg.power);
-  }
-}
-
-function applyPowerUp(player, power) {
-  if (!gameState) return;
-
-  switch(power) {
-    case "paddleSize+":
-      if (player <= 2) { // vertikális paddlek
-        gameState.paddles.PADDLE_H *= 1.3;
-      } else {
-        gameState.paddles.PADDLE_W *= 1.3;
-      }
-      break;
-
-    case "paddleSize-":
-      if (player <= 2) {
-        gameState.paddles.PADDLE_H *= 0.7;
-      } else {
-        gameState.paddles.PADDLE_W *= 0.7;
-      }
-      break;
-
-    case "paddleSpeed+":
-      gameState.players[player].speedBoost = 1.5;
-      setTimeout(()=> gameState.players[player].speedBoost = 1, 8000);
-      break;
-
-    case "paddleSpeed-":
-      gameState.players[player].speedBoost = 0.5;
-      setTimeout(()=> gameState.players[player].speedBoost = 1, 8000);
-      break;
-
-    case "ballSpeed+":
-      gameState.ball.vx *= 1.5;
-      gameState.ball.vy *= 1.5;
-      break;
-
-    case "ballSpeed-":
-      gameState.ball.vx *= 0.7;
-      gameState.ball.vy *= 0.7;
-      break;
-
-    case "invert":
-      // játékos irányítását fordítsuk meg
-      gameState.players[player].inverted = true;
-      setTimeout(()=> gameState.players[player].inverted = false, 8000);
-      break;
-
-    case "fireBall":
-      gameState.ball.fire = true;
-      setTimeout(()=> gameState.ball.fire = false, 5000);
-      break;
-
-    case "tripleBall":
-      // egyszerű vizuális placeholder
-      gameState.extraBalls = 2;
-      setTimeout(()=> gameState.extraBalls = 0, 8000);
-      break;
-
-    case "wickedBall":
-      gameState.ball.wicked = true;
-      setTimeout(()=> gameState.ball.wicked = false, 8000);
-      break;
-  }
-}
-
-function drawScoreboard(){
-  if(!scoreboardVisible || !gameState?.scores) return;
-  ctx.fillStyle = "rgba(0,0,0,0.8)";
-  ctx.fillRect(canvas.width/2 - 250, canvas.height/2 - 200, 500, 500);
-
-  ctx.font = "bold 36px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillStyle = "white";
-  ctx.fillText("EREDMÉNYTÁBLA", canvas.width/2, canvas.height/2 - 120);
-
-  const names = {1:"Bal",2:"Jobb",3:"Felső",4:"Alsó"};
-  let i = 0;
-  for (let id of [3,2,4,1]) {
-    ctx.fillStyle = colors[id];
-    ctx.fillText(`${names[id]}: ${gameState.scores[id]}`, canvas.width/2, canvas.height/2 - 40 + i*60);
-    i++;
-  }
-
-  const winnerId = Object.keys(gameState.scores).reduce((a,b)=> gameState.scores[a]>gameState.scores[b]?a:b);
-  ctx.fillStyle = colors[winnerId];
-  ctx.font = "bold 40px sans-serif";
-  ctx.fillText(`${names[winnerId]} játékos nyert!`, canvas.width/2, canvas.height/2 + 220);
-}
-
-function drawPowerUps(){
-  for(const id in powerUps){
-    const pu = powerUps[id];
-    ctx.fillStyle="orange";
-    ctx.beginPath();
-    ctx.arc(pu.x,pu.y,15,0,Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle="black";
-    ctx.font="16px sans-serif";
-    ctx.textAlign="center";
-    ctx.fillText("?",pu.x,pu.y+5);
-  }
-}
-
-
-function drawScores(GOAL_MARGIN){
-  if(!gameState?.scores) return;
-  ctx.fillStyle="white";
-  ctx.textAlign="center";
-  for(let i=1;i<=4;i++){
-    let scale = 1;
-    if(scoreAnimations[i]>0){
-      scale = 1 + 1.5 * scoreAnimations[i];
-      scoreAnimations[i]-=0.03;
-      if(scoreAnimations[i]<0) scoreAnimations[i]=0;
-    }
-    let x,y;
-    if(i===1){x=GOAL_MARGIN-20; y=canvas.height/2+10;}
-    if(i===2){x=canvas.width-GOAL_MARGIN+20; y=canvas.height/2+10;}
-    if(i===3){x=canvas.width/2; y=GOAL_MARGIN-10;}
-    if(i===4){x=canvas.width/2; y=canvas.height-GOAL_MARGIN+35;}
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.scale(scale,scale);
-    ctx.font="48px bold sans-serif";
-    ctx.fillText(gameState.scores[i]??0,0,0);
-    ctx.restore();
-
-    if (restartCountdown !== null) {
-      ctx.fillStyle = "orange";
-      ctx.font = "bold 28px sans-serif";
-      ctx.fillText(`Újraindítás: ${restartCountdown} mp`, canvas.width/2, canvas.height/2 + 270);
-    }
-  }
-}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  const PADDLE_H = gameState?.paddles?.PADDLE_H ?? Math.floor(canvas.height*0.3);
-  const PADDLE_W = gameState?.paddles?.PADDLE_W ?? Math.floor(canvas.width*0.18);
-  const PADDLE_THICK = gameState?.paddles?.PADDLE_THICKNESS ?? Math.floor(Math.min(canvas.width,canvas.height)*0.035);
-  const GOAL_MARGIN = 50;
-
-  let p1y = gameState?.players?.[1]?.y ?? (canvas.height/2-PADDLE_H/2);
-  let p2y = gameState?.players?.[2]?.y ?? (canvas.height/2-PADDLE_H/2);
-  let p3x = gameState?.players?.[3]?.x ?? (canvas.width/2-PADDLE_W/2);
-  let p4x = gameState?.players?.[4]?.x ?? (canvas.width/2-PADDLE_W/2);
-  let bx = gameState?.ball?.x ?? canvas.width/2;
-  let by = gameState?.ball?.y ?? canvas.height/2;
-
-  const cornerSize = 120;
-  ctx.strokeStyle="#fff";
-  ctx.lineWidth=30;
-
-  [[0,0],[canvas.width,0],[0,canvas.height],[canvas.width,canvas.height]].forEach((c,i)=>{
-    ctx.beginPath();
-    if(i===0){ctx.moveTo(0,0); ctx.lineTo(cornerSize,0); ctx.moveTo(0,0); ctx.lineTo(0,cornerSize);}
-    if(i===1){ctx.moveTo(canvas.width,0); ctx.lineTo(canvas.width-cornerSize,0); ctx.moveTo(canvas.width,0); ctx.lineTo(canvas.width,cornerSize);}
-    if(i===2){ctx.moveTo(0,canvas.height); ctx.lineTo(cornerSize,canvas.height); ctx.moveTo(0,canvas.height); ctx.lineTo(0,canvas.height-cornerSize);}
-    if(i===3){ctx.moveTo(canvas.width,canvas.height); ctx.lineTo(canvas.width-cornerSize,canvas.height); ctx.moveTo(canvas.width,canvas.height); ctx.lineTo(canvas.width,canvas.height-cornerSize);}
-    ctx.stroke();
-  });
-
-  const paddles = [
-    {x:GOAL_MARGIN,y:p1y,w:PADDLE_THICK,h:PADDLE_H,role:1},
-    {x:canvas.width-GOAL_MARGIN-PADDLE_THICK,y:p2y,w:PADDLE_THICK,h:PADDLE_H,role:2},
-    {x:p3x,y:GOAL_MARGIN,w:PADDLE_W,h:PADDLE_THICK,role:3},
-    {x:p4x,y:canvas.height-GOAL_MARGIN-PADDLE_THICK,w:PADDLE_W,h:PADDLE_THICK,role:4}
-  ];
-
-  paddles.forEach(p=>{
-    ctx.fillStyle=colors[p.role];
-    ctx.fillRect(p.x,p.y,p.w,p.h);
-    if(gameState?.roles?.[p.role]==="AI"){
-      ctx.fillStyle="#000";
-      ctx.font="40px bold sans-serif";
-      ctx.textAlign="center";
-      ctx.fillText("AI",p.x+p.w/2,p.y+p.h/2+6);
-    }
-  });
-
-  ctx.fillStyle="white";
-  ctx.beginPath();
-  ctx.arc(bx,by,20,0,Math.PI*2);
-  ctx.fill();
-
-  drawPowerUps();
-  
-  drawScores(GOAL_MARGIN);
-
-  if(restartMessage){
-    ctx.fillStyle="lime";
-    ctx.font="bold 48px sans-serif";
-    ctx.textAlign="center";
-    ctx.fillText(restartMessage, canvas.width/2, canvas.height/2 + 80);
-  }
-  drawScoreboard();
-  requestAnimationFrame(draw);
-}
-
-draw();
-
-function updateWSState(s){ document.getElementById('ws-state').textContent=s; }
-
-function sfxPaddleHit(){ playTone(400, 0.3); }
-function sfxStart(){  playTone(523, 0.3); }
-function sfxScore(){ playTone(784, 0.4); }
-
-function playTone(freq, duration) {
-  const osc = audioCtx.createOscillator();
-  osc.type = 'square';
-  osc.frequency.value = freq;
-  osc.connect(masterGain);
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration);
-}
-
-function playMarioTheme() {
-
-  let t = 0;
-  marioTheme.forEach(([freq, dur]) => {
-    setTimeout(() => { if(freq>0) playTone(freq, dur);}, t*1000);
-    t += dur;
-  });
-}
-
-playMarioTheme();
-
-document.body.addEventListener('click', () => {
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-});
-
-document.getElementById("restartBtn").addEventListener("click", () => {
-  fetch("http://192.168.88.41:3000/restart", { method: "POST" })
-    .then(r => r.text())
-    .then(msg => {
-      alert(msg + "\nA szerver 10 másodperc múlva újraindul.\nAz oldal frissítve lesz.");
-      setTimeout(() => {
-        location.reload(true); // ugyanaz, mint F5
-      }, 10000); // vár 10 másodpercet
-    })
-    .catch(err => alert("Error: " + err));
-});
-
-
-</script>
 </body>
 </html>

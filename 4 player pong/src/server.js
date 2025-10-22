@@ -13,7 +13,7 @@ const ADMIN_PORT = 3000; // admin API külön porton fut
 
 adminApp.post("/restart", (req, res) => {
   console.log("Restart requested...");
-  exec("bash /home/admin/4playerpong/restart.sh", (err, stdout, stderr) => {
+  exec("bash /home/admin/4-player-pong/'4playerpong'/src/restart.sh", (err, stdout, stderr) => { // Itt egy gecinagy hiba van mert spacet rakott valami autista a github mappa nevébe faszom.
     if (err) {
       console.error("Error restarting:", stderr);
       return res.status(500).send("Restart failed");
